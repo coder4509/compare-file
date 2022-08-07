@@ -40,8 +40,8 @@
     "dev:build-server": "webpack --config webpack.server.js --mode=development -w",
     "dev:start": "nodemon ./server-build/index.js",
     "dev": "npm-run-all --parallel build dev:*",
-    "start": "npm-run-all --parallel build dev:*",
-    "build": "react-scripts build",
+    "start": "npm run dev:start",
+    "build": "npm run dev",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
