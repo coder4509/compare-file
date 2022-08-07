@@ -9,6 +9,7 @@ import App from "../src/App";
 import bodyParser from "body-parser";
 import { createServer } from "http";
 import * as io from "socket.io";
+import Axios from "axios";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -59,11 +60,10 @@ const compareDiff = (spath, tpath) => {
       const [data1, data2] = datas;
       const { lhs: lhs_1, rhs: rhsD } = data1;
       const { rhs: rhs_1, lhs: lhsD } = data2;
-      const {
-        added = {},
-        deleted = {},
-        updated = {},
-      } = detailedDiff(lhs_1 || lhsD, rhs_1 || rhsD);
+      const { added = {}, deleted = {}, updated = {} } = detailedDiff(
+        lhs_1 || lhsD,
+        rhs_1 || rhsD
+      );
       if (
         Object.keys(added).length ||
         Object.keys(deleted).length ||
@@ -88,17 +88,17 @@ const checkFileDiff = (sPath, tPath) => {
       if (err) {
         throw new Error(err);
       }
-      if(!files.length){
+      if (!files.length) {
         ++totalScanFiles;
       }
       files.forEach((file) => {
         const subSPath = `${sPath}/${file}`;
         const subTPath = `${tPath}/${file}`;
-        if(!existsSync(subTPath)) {
+        if (!existsSync(subTPath)) {
           ++totalScanFiles;
           return newFiles.push({
-            sPath: subSPath
-          })
+            sPath: subSPath,
+          });
         }
         return lstat(subSPath, (err2, stats) => {
           if (err2) {
@@ -128,17 +128,17 @@ const checkFileDiff = (sPath, tPath) => {
       if (err) {
         throw new Error(err);
       }
-      if(!files.length){
+      if (!files.length) {
         ++totalScanFiles;
       }
       files.forEach((file) => {
         const subSPath = `${sPath}/${file}`;
         const subTPath = `${tPath}/${file}`;
-        if(!existsSync(subTPath)) {
+        if (!existsSync(subTPath)) {
           ++totalScanFiles;
           return newFiles.push({
-            sPath: subSPath
-          })
+            sPath: subSPath,
+          });
         }
         return lstat(subSPath, (err2, stats) => {
           if (err2) {
@@ -156,8 +156,8 @@ const checkFileDiff = (sPath, tPath) => {
             socketIo.emit("compare_done", "done");
             ++totalScanFiles;
             return newFiles.push({
-                sPath: subSPath,
-              });
+              sPath: subSPath,
+            });
           }
         });
       });
@@ -238,7 +238,7 @@ app.get("/stats", (req, res, next) => {
   res.send({
     newFiles,
     diffFiles,
-    totalScanFiles : totalScanFiles - 1,
+    totalScanFiles: totalScanFiles - 1,
   });
 });
 
@@ -253,3 +253,9 @@ httpServer.listen(port, () => {
 socketIo.on("connection", (socket) => {
   console.log("new client connected");
 });
+
+if (process.env.IS_PROD) {
+  setInterval(function() {
+    Axios.get("https://file-compare-react-merge.herokuapp.com/health");
+  }, 300000);
+}
