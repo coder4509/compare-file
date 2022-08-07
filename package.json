@@ -47,7 +47,8 @@
     "dev:start": "nodemon ./server-build/index.js",
     "deploy:start": "node ./server-build/index.js",
     "dev": "npm-run-all --parallel build dev:*",
-    "deploy": "npm run build && npm run deploy:build-server && npm run deploy:start"
+    "deploy": "npm run build && npm run deploy:build-server && npm run deploy:start",
+    "heroku-prebuild": "npm install --dev"
   },
   "eslintConfig": {
     "extends": [
