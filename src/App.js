@@ -12,6 +12,7 @@ function App() {
   });
 
   useEffect(() => {
+    console.log("isConnected", isConnected);
     socket.on("connect", () => {
       setIsConnected(true);
     });
