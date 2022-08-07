@@ -1,0 +1,8 @@
+{
+    "name": "Compare files",
+    "description": "Compare all files",
+    "logo": "",
+    "image": "heroku/nodejs",
+    "repository": "https://github.com/coder4509/compare-file.git",
+    "keywords": ["node", "postgres", "react", "merge file", "compare", "express"]
+  }
