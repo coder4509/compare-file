@@ -1,8 +1,17 @@
 import { XMLParser, XMLBuilder, XMLValidator } from "fast-xml-parser";
 import { detailedDiff } from "deep-object-diff";
 import express from "express";
-import { readFile, existsSync, readdir, lstat, writeFile, mkdir } from "fs";
-import { resolve } from "path";
+import {
+  readFile,
+  existsSync,
+  readdir,
+  lstat,
+  writeFile,
+  mkdir,
+  readdirSync,
+  statSync,
+} from "fs";
+import { resolve, join } from "path";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
 import App from "../src/App";
@@ -10,6 +19,7 @@ import bodyParser from "body-parser";
 import { createServer } from "http";
 import * as io from "socket.io";
 import Axios from "axios";
+import glob from "glob";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -24,6 +34,10 @@ app.use(bodyParser.json());
 let newFiles = [];
 let diffFiles = [];
 let totalScanFiles = 0;
+
+const getDirectories = function(src, callback) {
+  glob(src + "/**/*", callback);
+};
 
 const compareDiff = (spath, tpath) => {
   // Promise for source Data
@@ -190,12 +204,24 @@ app.post("/xml", (req, res, next) => {
     newFiles = [];
     diffFiles = [];
     totalScanFiles = 0;
+    let totalFiles = 0;
     if (!sourcePath || !targetPath) {
       return res.status(400).send("Please provide paths");
     }
 
     const parentSPath = resolve(sourcePath);
     const parentTPath = resolve(targetPath);
+    function ThroughDirectory(Directory) {
+      readdirSync(Directory).forEach((File) => {
+        const Absolute = join(Directory, File);
+        if (statSync(Absolute).isDirectory()) {
+          totalFiles++;
+          return ThroughDirectory(Absolute);
+        } else return totalFiles++;
+      });
+    }
+
+    ThroughDirectory(parentSPath);
 
     // first call
     socketIo.emit("compare_done", "progress");
@@ -204,7 +230,9 @@ app.post("/xml", (req, res, next) => {
       socketIo.emit("compare_done", "done");
     }, 5000);
 
-    return res.status(200).send("Started ....... !");
+    return res
+      .status(200)
+      .send({ message: "Started ....... !", totalFiles: totalFiles });
   } catch (error) {
     throw new Error(error);
   }
@@ -241,7 +269,7 @@ app.get("/stats", (req, res, next) => {
   res.send({
     newFiles,
     diffFiles,
-    totalScanFiles: totalScanFiles - 1,
+    totalScanFiles: totalScanFiles
   });
 });
 
@@ -277,15 +305,17 @@ app.post("/saveFile", (req, res) => {
             }
             return resolveP(data);
           });
-        }).then((resData) => {
-          writeFile(target, resData, (err, ress) => {
-            if (err) {
-              console.log(err);
-              throw new Error("something went wrong....!");
-            }
-            socketIo.emit("save_file", { message: "saved", path: source });
-          });
-        });
+        })
+          .then((resData) => {
+            writeFile(target, resData, (err, ress) => {
+              if (err) {
+                console.log(err);
+                throw new Error("something went wrong....!");
+              }
+              socketIo.emit("save_file", { message: "saved", path: source });
+            });
+          })
+          .catch((err) => console.log(err, "error:::"));
       }
     });
   }

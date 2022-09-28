@@ -51,7 +51,7 @@ export default function TabView({
             count = statsData.newF;
           }
           if (tabItem.id === "diffFile") {
-            count = statsData.newF;
+            count = statsData.diff;
           }
           return (
             <div

@@ -26,6 +26,7 @@ function App() {
     newF: 0,
     total: 0,
     scan: 0,
+    totalPercentage: 0,
   });
 
   const [listDiff, setListDiff] = useState([]);
@@ -42,7 +43,7 @@ function App() {
     });
 
     socket.on("save_file", (arg) => {
-      console.log("arg", arg)
+      console.log("arg", arg);
       if (arg.message === "saved") {
         const cloneListNew = JSON.parse(JSON.stringify(listNew));
         const index = cloneListNew.findIndex(
@@ -126,12 +127,22 @@ function App() {
   };
 
   const startCompare = () => {
-    setTotalStatus((preState) => ({
+    // setTotalStatus((preState) => ({
+    //   ...preState,
+    //   progress: 0,
+    //   done: 0,
+    // }));
+    setStatsData((preState) => ({
       ...preState,
-      progress: 0,
-      done: 0,
+      total: 0
     }));
-    startFileCompare(formData.sourcePath, formData.targetPath);
+    startFileCompare(formData.sourcePath, formData.targetPath).then((res) => {
+      const { totalFiles = 0 } = res.data;
+      setStatsData((preState) => ({
+        ...preState,
+        total: totalFiles || 0
+      }));
+    }).catch(err=>console.log("Error:UI::startFileCompare", err));
   };
 
   const fetchFilesData = async (spath, tpath) => {
@@ -155,7 +166,7 @@ function App() {
         newF: (res && res.data && res.data.newFiles.length) || 0,
         scan: (res && res.data && res.data.totalScanFiles) || 0,
       }));
-    });
+    }).catch(err=>console.log("Error:UI::fetchStats", err));;
   };
 
   const handleDiffPos = (pos = "next") => {
@@ -167,24 +178,41 @@ function App() {
   const handleNewFile = (e, source, target) => {
     console.log("source", source);
     console.log("target", target);
-    saveFile(source, target).then((res) => console.log("Response", res));
+    saveFile(source, target).then((res) => console.log("Response", res)).catch(err=>console.log("Error:UI::handleNewFile", err));;
   };
-
+  const getPer = () => {
+    return (statsData.scan / statsData.total) * 100;
+  };
   return (
     <div>
+      <div
+        id="overlay"
+        style={{
+          display: getPer() && getPer() < 100 ? "block" : "none",
+        }}
+      >
+        <div className="wrapper">
+          <div className="progress-bar">
+            <span
+              className="progress-bar-fill"
+              style={{ width: `${getPer()}%` }}
+            >{`${Math.floor(getPer())}%`}</span>
+          </div>
+        </div>
+      </div>
       <div>
         <div style={{ textAlign: "center" }}>
           <h3>Compare XML files quickly</h3>
         </div>
         <div style={{ display: "flex", justifyContent: "space-evenly" }}>
           {/* Source */}
-          <div
+          {/* <div
             className="status-pro"
             style={{
-              ...(totalStatus.done - 1 > 0 ? { background: "green" } : {}),
-              ...(totalStatus.progress - 1 > 0 ? { background: "yellow" } : {}),
+              ...(totalStatus.done > 0 ? { background: "green" } : {}),
+              ...(totalStatus.progress > 0 ? { background: "yellow" } : {}),
             }}
-          ></div>
+          ></div> */}
           <div style={{ display: "block" }}>
             <label>Source Path</label> <br />
             <input
