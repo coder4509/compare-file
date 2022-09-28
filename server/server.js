@@ -1,7 +1,7 @@
 import { XMLParser, XMLBuilder, XMLValidator } from "fast-xml-parser";
 import { detailedDiff } from "deep-object-diff";
 import express from "express";
-import { readFile, existsSync, readdir, lstat } from "fs";
+import { readFile, existsSync, readdir, lstat, writeFile, mkdir } from "fs";
 import { resolve } from "path";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
@@ -97,7 +97,8 @@ const checkFileDiff = (sPath, tPath) => {
         if (!existsSync(subTPath)) {
           ++totalScanFiles;
           return newFiles.push({
-            sPath: subSPath,
+            s: subSPath,
+            t: subTPath,
           });
         }
         return lstat(subSPath, (err2, stats) => {
@@ -137,7 +138,8 @@ const checkFileDiff = (sPath, tPath) => {
         if (!existsSync(subTPath)) {
           ++totalScanFiles;
           return newFiles.push({
-            sPath: subSPath,
+            s: subSPath,
+            t: subTPath,
           });
         }
         return lstat(subSPath, (err2, stats) => {
@@ -156,7 +158,8 @@ const checkFileDiff = (sPath, tPath) => {
             socketIo.emit("compare_done", "done");
             ++totalScanFiles;
             return newFiles.push({
-              sPath: subSPath,
+              s: subSPath,
+              t: subTPath,
             });
           }
         });
@@ -172,7 +175,7 @@ app.get("/", (req, res) => {
   fs.readFile(indexFile, "utf8", (err, data) => {
     if (err) {
       console.error("Something went wrong:", err);
-      return res.status(500).send("Oops, better luck next time!");
+      throw new Error("Something went wrong....!");
     }
 
     return res.send(
@@ -215,7 +218,7 @@ app.post("/fileData", async (req, res) => {
   const sourceData = new Promise((resolveP) => {
     readFile(resolve(source), "utf8", (err, data) => {
       if (err) {
-        return res.status(500).send("Oops, better luck next time!");
+        throw new Error("Something went wrong.....!");
       }
       return resolveP({ s: data });
     });
@@ -224,7 +227,7 @@ app.post("/fileData", async (req, res) => {
   const targetData = new Promise((resolveP) => {
     readFile(resolve(target), "utf8", (err, data) => {
       if (err) {
-        return res.status(500).send("Oops, better luck next time!");
+        throw new Error("Something went wrong.....!");
       }
       return resolveP({ t: data });
     });
@@ -244,6 +247,49 @@ app.get("/stats", (req, res, next) => {
 
 app.get("/health", (req, res) => {
   res.send("system healthly.....");
+});
+
+app.post("/saveFile", (req, res) => {
+  const { target, source } = req.body;
+  if (!target) {
+    return res.status(400).send({ message: "path is not correct" });
+  }
+
+  if (target && !existsSync(target)) {
+    lstat(source, (err, data) => {
+      if (err) {
+        throw new Error("Error file");
+      }
+      const isDir = data.isDirectory();
+      if (isDir) {
+        mkdir(target, (err, filePtah) => {
+          if (err) {
+            throw new Error("Error file");
+          }
+          socketIo.emit("save_file", { message: "saved", path: source });
+        });
+      } else {
+        new Promise((resolveP) => {
+          readFile(resolve(source), "utf8", (err, data) => {
+            if (err) {
+              console.log(err, "err");
+              throw new Error("something went wrong....!");
+            }
+            return resolveP(data);
+          });
+        }).then((resData) => {
+          writeFile(target, resData, (err, ress) => {
+            if (err) {
+              console.log(err);
+              throw new Error("something went wrong....!");
+            }
+            socketIo.emit("save_file", { message: "saved", path: source });
+          });
+        });
+      }
+    });
+  }
+  return res.status(200).send("proccessing...");
 });
 
 httpServer.listen(port, () => {

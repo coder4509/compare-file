@@ -1,7 +1,8 @@
-import { startFileCompare, getStats, getFileData } from "./compareFileService";
+import { startFileCompare, getStats, getFileData, saveFile } from "./compareFileService";
 
 export {
     startFileCompare,
     getStats,
-    getFileData
+    getFileData,
+    saveFile
 }

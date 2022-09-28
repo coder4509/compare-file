@@ -42,7 +42,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "dev:build-server": "NODE_ENV=development webpack --config webpack.server.js --mode=development -w",
+    "dev:build-server": "webpack --config webpack.server.js --mode=development -w",
     "deploy:build-server": "NODE_ENV=production webpack --config webpack.server.js",
     "dev:start": "nodemon ./server-build/index.js",
     "deploy:start": "node ./server-build/index.js",

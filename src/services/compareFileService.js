@@ -30,4 +30,15 @@ const getFileData = async (spath, tpath) => {
   });
 };
 
-export { startFileCompare, getStats , getFileData};
+const saveFile = async (spath, tpath) => {
+  const URL = window && window.window.location.origin;
+  if (!URL) {
+    return false;
+  }
+  return await axios.post(`${URL}/saveFile`, {
+    source: spath,
+    target: tpath
+  });
+}
+
+export { startFileCompare, getStats , getFileData, saveFile};

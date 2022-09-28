@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { MergelyEditor, ListCard } from "./components";
-import { startFileCompare, getStats, getFileData } from "./services";
+import { MergelyEditor, TabView } from "./components";
+import { startFileCompare, getStats, getFileData, saveFile } from "./services";
 import io from "socket.io-client";
 import "./App.css";
 const socket = io();
@@ -11,6 +11,26 @@ function App() {
     progress: 0,
   });
 
+  const [mergelyShow, setMerglyShow] = useState({
+    lhsData: "",
+    rhsData: "",
+    isShow: false,
+  });
+  const [formData, setFormData] = useState({
+    sourcePath: "",
+    targetPath: "",
+  });
+
+  const [statsData, setStatsData] = useState({
+    diff: 0,
+    newF: 0,
+    total: 0,
+    scan: 0,
+  });
+
+  const [listDiff, setListDiff] = useState([]);
+  const [listNew, setListNew] = useState([]);
+
   useEffect(() => {
     console.log("isConnected", isConnected);
     socket.on("connect", () => {
@@ -19,6 +39,20 @@ function App() {
 
     socket.on("disconnect", () => {
       setIsConnected(false);
+    });
+
+    socket.on("save_file", (arg) => {
+      console.log("arg", arg)
+      if (arg.message === "saved") {
+        const cloneListNew = JSON.parse(JSON.stringify(listNew));
+        const index = cloneListNew.findIndex(
+          (newFile) => newFile.t === arg.path
+        );
+        if (index !== -1) {
+          cloneListNew.splice(index, 1);
+          setListNew([...cloneListNew]);
+        }
+      }
     });
 
     socket.on("compare_done", (arg) => {
@@ -47,25 +81,6 @@ function App() {
       socket.off("disconnect");
     };
   }, []);
-
-  const [mergelyShow, setMerglyShow] = useState({
-    lhsData: "",
-    rhsData: "",
-    isShow: false,
-  });
-  const [formData, setFormData] = useState({
-    sourcePath: "",
-    targetPath: "",
-  });
-
-  const [statsData, setStatsData] = useState({
-    diff: 0,
-    newF: 0,
-    total: 0,
-    scan: 0,
-  });
-
-  const [listDiff, setListDiff] = useState([]);
 
   const handleInput = (e) => {
     const val = e.target.value;
@@ -131,6 +146,9 @@ function App() {
         return item;
       });
       setListDiff([...dataListNew]);
+      if (res && res.data && res.data.newFiles) {
+        setListNew([...res.data.newFiles]);
+      }
       setStatsData((preState) => ({
         ...preState,
         diff: dataList.length,
@@ -146,6 +164,12 @@ function App() {
     }
   };
 
+  const handleNewFile = (e, source, target) => {
+    console.log("source", source);
+    console.log("target", target);
+    saveFile(source, target).then((res) => console.log("Response", res));
+  };
+
   return (
     <div>
       <div>
@@ -157,8 +181,8 @@ function App() {
           <div
             className="status-pro"
             style={{
-              ...((totalStatus.done - 1) > 0 ? { background: "green" } : {}),
-              ...((totalStatus.progress - 1) > 0 ? { background: "yellow" } : {}),
+              ...(totalStatus.done - 1 > 0 ? { background: "green" } : {}),
+              ...(totalStatus.progress - 1 > 0 ? { background: "yellow" } : {}),
             }}
           ></div>
           <div style={{ display: "block" }}>
@@ -201,42 +225,15 @@ function App() {
           </div>
         </div>
         <hr />
-        <div style={{ display: "flex", justifyContent: "space-around" }}>
-          <div>
-            Total New <span className="badge">{statsData.newF}</span>
-          </div>
-          <div>
-            Total Diff <span className="badge">{statsData.diff}</span>
-          </div>
-        </div>
-        <hr />
+        <TabView
+          handleDiff={handleDiff}
+          listDiff={listDiff}
+          listNew={listNew}
+          handleNew={handleNewFile}
+          statsData={statsData}
+        />
       </div>
-      <div style={{ overflowY: "scroll", height: "20rem" }}>
-        {listDiff.length ? (
-          listDiff
-            .sort((a, b) => {
-              return b.pos > a.pos ? 1 : -1;
-            })
-            .map((dataItem, index) => {
-              return (
-                <>
-                  <ListCard
-                    sourcePath={dataItem.s}
-                    targetPath={dataItem.t}
-                    handleDiff={handleDiff}
-                    indexKey={index}
-                    isViewed={dataItem.isViewed || false}
-                    position={dataItem.pos}
-                  />
-                </>
-              );
-            })
-        ) : (
-          <>
-            <div className="center_no_data">No compare result......!</div>
-          </>
-        )}
-      </div>
+
       <div>
         {mergelyShow.isShow && mergelyShow.lhsData && mergelyShow.rhsData && (
           <>

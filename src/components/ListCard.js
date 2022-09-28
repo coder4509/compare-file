@@ -1,8 +1,15 @@
 import React from "react";
 
 export default function ListCard(props) {
-  const { sourcePath, targetPath, isViewed, handleDiff, indexKey, position } =
-    props;
+  const {
+    sourcePath,
+    targetPath,
+    isViewed,
+    handleDiff,
+    indexKey,
+    position,
+    isNew = false,
+  } = props;
   return (
     <div
       style={{
@@ -12,7 +19,7 @@ export default function ListCard(props) {
         padding: "1rem",
         margin: "20px",
         borderRadius: "10px",
-        cursor:'pointer',
+        cursor: "pointer",
         ...(isViewed ? { background: "#5cb45c" } : {}),
       }}
       key={`${indexKey}_${Date.now()}`}
@@ -22,11 +29,19 @@ export default function ListCard(props) {
         {sourcePath}
       </div>
       <div style={{ width: "10%" }}>
-        <button
-          onClick={(e) => handleDiff(e, sourcePath, targetPath, position)}
-        >
-          Check Diff
-        </button>
+        {!isNew ? (
+          <button
+            onClick={(e) => handleDiff(e, sourcePath, targetPath, position)}
+          >
+            Check Diff
+          </button>
+        ) : (
+          <button
+            onClick={(e) => handleDiff(e, sourcePath, targetPath, position)}
+          >
+            Save
+          </button>
+        )}
       </div>
     </div>
   );
