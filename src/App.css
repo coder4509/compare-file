@@ -170,10 +170,11 @@ button:hover {
 
 .progress-bar {
   width: 100%;
-  background-color: #e0e0e0;
+  background-color: #999595;
   padding: 3px;
   border-radius: 3px;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+  border: 1px solid #fff;
 }
 
 .progress-bar-fill {

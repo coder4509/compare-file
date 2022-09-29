@@ -3,13 +3,17 @@ import { MergelyEditor, TabView } from "./components";
 import { startFileCompare, getStats, getFileData, saveFile } from "./services";
 import io from "socket.io-client";
 import "./App.css";
+
+const initialState = {
+  diff: 0,
+  newF: 0,
+  total: 0,
+  scan: 0,
+};
+
 const socket = io();
 function App() {
   const [isConnected, setIsConnected] = useState(socket.connected);
-  const [totalStatus, setTotalStatus] = useState({
-    done: 0,
-    progress: 0,
-  });
 
   const [mergelyShow, setMerglyShow] = useState({
     lhsData: "",
@@ -21,16 +25,12 @@ function App() {
     targetPath: "",
   });
 
-  const [statsData, setStatsData] = useState({
-    diff: 0,
-    newF: 0,
-    total: 0,
-    scan: 0,
-    totalPercentage: 0,
-  });
+  const [statsData, setStatsData] = useState(initialState);
 
   const [listDiff, setListDiff] = useState([]);
   const [listNew, setListNew] = useState([]);
+
+  const [startAgain, setStartAgain] = useState(false);
 
   useEffect(() => {
     console.log("isConnected", isConnected);
@@ -59,20 +59,7 @@ function App() {
     socket.on("compare_done", (arg) => {
       if (arg === "done") {
         setTimeout(() => {
-          setTotalStatus((preState) => ({
-            ...preState,
-            done: preState.done + 1,
-            progress: (preState.progress && preState.progress - 1) || 0,
-          }));
           fetchStats();
-        }, 1000);
-      } else {
-        setTimeout(() => {
-          setTotalStatus((preState) => ({
-            ...preState,
-            progress: preState.progress + 1,
-            done: (preState.done && preState.done - 1) || 0,
-          }));
         }, 1000);
       }
     });
@@ -127,22 +114,24 @@ function App() {
   };
 
   const startCompare = () => {
-    // setTotalStatus((preState) => ({
-    //   ...preState,
-    //   progress: 0,
-    //   done: 0,
-    // }));
     setStatsData((preState) => ({
       ...preState,
-      total: 0
+      ...initialState,
     }));
-    startFileCompare(formData.sourcePath, formData.targetPath).then((res) => {
-      const { totalFiles = 0 } = res.data;
-      setStatsData((preState) => ({
-        ...preState,
-        total: totalFiles || 0
-      }));
-    }).catch(err=>console.log("Error:UI::startFileCompare", err));
+
+    setStartAgain(true);
+    startFileCompare(formData.sourcePath, formData.targetPath)
+      .then((res) => {
+        const { totalFiles = 0 } = res.data;
+        setStatsData((preState) => ({
+          ...preState,
+          total: totalFiles || 0,
+        }));
+      })
+      .catch((err) => {
+        setStartAgain(false);
+        console.log("Error:UI::startFileCompare", err);
+      });
   };
 
   const fetchFilesData = async (spath, tpath) => {
@@ -150,23 +139,28 @@ function App() {
   };
 
   const fetchStats = () => {
-    getStats().then((res) => {
-      const dataList = res && res.data && res.data.diffFiles;
-      const dataListNew = dataList.map((item, index) => {
-        item.pos = index;
-        return item;
+    getStats()
+      .then((res) => {
+        const dataList = res && res.data && res.data.diffFiles;
+        const dataListNew = dataList.map((item, index) => {
+          item.pos = index;
+          return item;
+        });
+        setListDiff([...dataListNew]);
+        if (res && res.data && res.data.newFiles) {
+          setListNew([...res.data.newFiles]);
+        }
+        setStatsData((preState) => ({
+          ...preState,
+          diff: dataList.length,
+          newF: (res && res.data && res.data.newFiles.length) || 0,
+          scan: (res && res.data && res.data.totalScanFiles) || 0,
+        }));
+      })
+      .catch((err) => {
+        setStartAgain(false);
+        console.log("Error:UI::fetchStats", err);
       });
-      setListDiff([...dataListNew]);
-      if (res && res.data && res.data.newFiles) {
-        setListNew([...res.data.newFiles]);
-      }
-      setStatsData((preState) => ({
-        ...preState,
-        diff: dataList.length,
-        newF: (res && res.data && res.data.newFiles.length) || 0,
-        scan: (res && res.data && res.data.totalScanFiles) || 0,
-      }));
-    }).catch(err=>console.log("Error:UI::fetchStats", err));;
   };
 
   const handleDiffPos = (pos = "next") => {
@@ -178,25 +172,53 @@ function App() {
   const handleNewFile = (e, source, target) => {
     console.log("source", source);
     console.log("target", target);
-    saveFile(source, target).then((res) => console.log("Response", res)).catch(err=>console.log("Error:UI::handleNewFile", err));;
+    saveFile(source, target)
+      .then((res) => console.log("Response", res))
+      .catch((err) => {
+        setStartAgain(false);
+        console.log("Error:UI::handleNewFile", err);
+      });
   };
   const getPer = () => {
-    return (statsData.scan / statsData.total) * 100;
+    if (statsData.scan > 0 && startAgain) {
+      setStartAgain(false);
+    }
+    return Math.ceil((statsData.scan / statsData.total) * 100);
   };
   return (
     <div>
       <div
         id="overlay"
         style={{
-          display: getPer() && getPer() < 100 ? "block" : "none",
+          display:
+            (getPer() && getPer() < 100) || startAgain ? "block" : "none",
         }}
       >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            padding: "10px",
+          }}
+        >
+          <button
+            onClick={() => {
+              setStartAgain(true);
+            }}
+          >
+            Close
+          </button>
+        </div>
         <div className="wrapper">
-          <div className="progress-bar">
+          <div className="progress-bar" style={{ textAlign: "-webkit-center" }}>
             <span
               className="progress-bar-fill"
-              style={{ width: `${getPer()}%` }}
-            >{`${Math.floor(getPer())}%`}</span>
+              style={{
+                width: `${getPer() || 0}%`,
+                textAlign: "center",
+                color: "white",
+              }}
+            >{`${getPer() || 0}%`}</span>
           </div>
         </div>
       </div>
@@ -205,14 +227,6 @@ function App() {
           <h3>Compare XML files quickly</h3>
         </div>
         <div style={{ display: "flex", justifyContent: "space-evenly" }}>
-          {/* Source */}
-          {/* <div
-            className="status-pro"
-            style={{
-              ...(totalStatus.done > 0 ? { background: "green" } : {}),
-              ...(totalStatus.progress > 0 ? { background: "yellow" } : {}),
-            }}
-          ></div> */}
           <div style={{ display: "block" }}>
             <label>Source Path</label> <br />
             <input

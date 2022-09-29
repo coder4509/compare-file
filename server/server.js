@@ -19,7 +19,6 @@ import bodyParser from "body-parser";
 import { createServer } from "http";
 import * as io from "socket.io";
 import Axios from "axios";
-import glob from "glob";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -33,14 +32,11 @@ app.use(bodyParser.json());
 
 let newFiles = [];
 let diffFiles = [];
-let totalScanFiles = 0;
-
-const getDirectories = function(src, callback) {
-  glob(src + "/**/*", callback);
-};
+let totalScan = [];
 
 const compareDiff = (spath, tpath) => {
   // Promise for source Data
+  totalScan.push(spath);
   const sourceDataPromise = new Promise((resolvePro, rejectPro) => {
     readFile(spath, "utf-8", (err, dataS) => {
       if (err) {
@@ -94,22 +90,21 @@ const compareDiff = (spath, tpath) => {
     });
 };
 
-const checkFileDiff = (sPath, tPath) => {
+const checkFileDiff = (sPath, tPath, isFirst = false) => {
   // check if file or folder exists
   socketIo.emit("compare_done", "progress");
+  if(!isFirst) {
+    totalScan.push(sPath);
+  }
   if (existsSync(sPath) && existsSync(tPath)) {
     readdir(sPath, (err, files) => {
       if (err) {
         throw new Error(err);
       }
-      if (!files.length) {
-        ++totalScanFiles;
-      }
       files.forEach((file) => {
         const subSPath = `${sPath}/${file}`;
         const subTPath = `${tPath}/${file}`;
         if (!existsSync(subTPath)) {
-          ++totalScanFiles;
           return newFiles.push({
             s: subSPath,
             t: subTPath,
@@ -123,14 +118,12 @@ const checkFileDiff = (sPath, tPath) => {
           if (isDir) {
             return setTimeout(() => {
               checkFileDiff(resolve(subSPath), resolve(subTPath));
-              ++totalScanFiles;
               socketIo.emit("compare_done", "done");
             }, 2000);
           } else {
             socketIo.emit("compare_done", "progress");
             return setTimeout(() => {
               compareDiff(subSPath, subTPath);
-              ++totalScanFiles;
               socketIo.emit("compare_done", "done");
             }, 2000);
           }
@@ -143,14 +136,10 @@ const checkFileDiff = (sPath, tPath) => {
       if (err) {
         throw new Error(err);
       }
-      if (!files.length) {
-        ++totalScanFiles;
-      }
       files.forEach((file) => {
         const subSPath = `${sPath}/${file}`;
         const subTPath = `${tPath}/${file}`;
         if (!existsSync(subTPath)) {
-          ++totalScanFiles;
           return newFiles.push({
             s: subSPath,
             t: subTPath,
@@ -165,12 +154,10 @@ const checkFileDiff = (sPath, tPath) => {
             socketIo.emit("compare_done", "progress");
             return setTimeout(() => {
               checkFileDiff(resolve(subSPath), resolve(subTPath));
-              ++totalScanFiles;
               socketIo.emit("compare_done", "done");
             }, 2000);
           } else {
             socketIo.emit("compare_done", "done");
-            ++totalScanFiles;
             return newFiles.push({
               s: subSPath,
               t: subTPath,
@@ -203,7 +190,7 @@ app.post("/xml", (req, res, next) => {
     const { sourcePath, targetPath } = req.body;
     newFiles = [];
     diffFiles = [];
-    totalScanFiles = 0;
+    totalScan = [];
     let totalFiles = 0;
     if (!sourcePath || !targetPath) {
       return res.status(400).send("Please provide paths");
@@ -226,7 +213,7 @@ app.post("/xml", (req, res, next) => {
     // first call
     socketIo.emit("compare_done", "progress");
     setTimeout(() => {
-      checkFileDiff(parentSPath, parentTPath);
+      checkFileDiff(parentSPath, parentTPath, true);
       socketIo.emit("compare_done", "done");
     }, 5000);
 
@@ -269,7 +256,7 @@ app.get("/stats", (req, res, next) => {
   res.send({
     newFiles,
     diffFiles,
-    totalScanFiles: totalScanFiles
+    totalScanFiles: totalScan.length
   });
 });
 
@@ -330,8 +317,8 @@ socketIo.on("connection", (socket) => {
   console.log("new client connected");
 });
 
-if (process.env.IS_PROD) {
-  setInterval(function() {
-    Axios.get("https://file-compare-react-merge.herokuapp.com/health");
-  }, 300000);
-}
+// if (process.env.IS_PROD) {
+//   setInterval(function() {
+//     Axios.get("https://file-compare-react-merge.herokuapp.com/health");
+//   }, 300000);
+// }
