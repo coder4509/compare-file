@@ -7,9 +7,11 @@ import {
   readdir,
   lstat,
   writeFile,
+  writeFileSync,
   mkdir,
   readdirSync,
   statSync,
+  unlink,
 } from "fs";
 import { resolve, join } from "path";
 import React from "react";
@@ -19,6 +21,9 @@ import bodyParser from "body-parser";
 import { createServer } from "http";
 import * as io from "socket.io";
 import Axios from "axios";
+import transFormXMLFile from "./formatXML";
+import uniqid from "uniqid";
+ 
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -33,7 +38,12 @@ app.use(bodyParser.json());
 let newFiles = [];
 let diffFiles = [];
 let totalScan = [];
-
+const optionsP = {
+  allowBooleanAttributes: true,
+  format: true,
+  suppressBooleanAttributes: false,
+  preserveOrder: true,
+};
 const compareDiff = (spath, tpath) => {
   // Promise for source Data
   totalScan.push(spath);
@@ -44,6 +54,7 @@ const compareDiff = (spath, tpath) => {
       }
       const sourceParser = new XMLParser({
         ignoreAttributes: false,
+        ...optionsP,
       });
       const lhs = sourceParser.parse(dataS);
       resolvePro({ lhs });
@@ -58,6 +69,7 @@ const compareDiff = (spath, tpath) => {
       }
       const sourceParser = new XMLParser({
         ignoreAttributes: false,
+        ...optionsP,
       });
       const rhs = sourceParser.parse(dataT);
       resolveTPro({ rhs });
@@ -93,7 +105,7 @@ const compareDiff = (spath, tpath) => {
 const checkFileDiff = (sPath, tPath, isFirst = false) => {
   // check if file or folder exists
   socketIo.emit("compare_done", "progress");
-  if(!isFirst) {
+  if (!isFirst) {
     totalScan.push(sPath);
   }
   if (existsSync(sPath) && existsSync(tPath)) {
@@ -225,38 +237,94 @@ app.post("/xml", (req, res, next) => {
   }
 });
 
+
+
 app.post("/fileData", async (req, res) => {
   const { source, target } = req.body;
   if (!source || !target) {
     return res.status(400).send("bad request");
   }
-  const sourceData = new Promise((resolveP) => {
-    readFile(resolve(source), "utf8", (err, data) => {
-      if (err) {
-        throw new Error("Something went wrong.....!");
-      }
-      return resolveP({ s: data });
-    });
-  });
-
-  const targetData = new Promise((resolveP) => {
-    readFile(resolve(target), "utf8", (err, data) => {
-      if (err) {
-        throw new Error("Something went wrong.....!");
-      }
-      return resolveP({ t: data });
-    });
-  });
-
+  const sourceData = transFormXMLFile(source, "s");
+  const targetData = transFormXMLFile(target, "t");
   const responseData = await Promise.all([sourceData, targetData]);
-  return res.send(responseData);
+  // =====================
+  const [s1, s2] = responseData;
+  const sData = s1.s || s2.s;
+  const tData = s2.t || s1.t;
+
+  // ===========================
+  const targetParser = new XMLParser({
+    ignoreAttributes: false,
+    ...optionsP,
+  });
+
+  const soruceParser = new XMLParser({
+    ignoreAttributes: false,
+    ...optionsP,
+  });
+  // ====================================
+  const targetDataD = targetParser.parse(tData);
+  const sourceDataD = soruceParser.parse(sData);
+  const options = { ignoreCase: true, reverse: false, depth: 1, indentSize: 2 };
+  const fSData = sourceDataD;
+  const fTData = targetDataD;
+  // =================================
+  const builderTarget = new XMLBuilder({
+    ignoreAttributes: false,
+    ...optionsP,
+  });
+  const finalTarget = builderTarget.build(fTData);
+  const builderSource = new XMLBuilder({
+    ignoreAttributes: false,
+    ...optionsP,
+  });
+  const finalSource = builderSource.build(fSData);
+
+  // create temp file for target
+  const taretTempFile = `${uniqid()}_target.xml`;
+  writeFileSync(resolve(__dirname, taretTempFile), finalTarget, "utf8");
+  const sourceTempFile = `${uniqid()}_source.xml`;
+  writeFileSync(resolve(__dirname, sourceTempFile), finalSource, "utf8");
+
+  const finalSourceData = transFormXMLFile(
+    resolve(__dirname, sourceTempFile),
+    "s"
+  );
+  const finslTargetData = transFormXMLFile(
+    resolve(__dirname, taretTempFile),
+    "t"
+  );
+  const finslresponseData = await Promise.all([
+    finalSourceData,
+    finslTargetData,
+  ]);
+  let sourceD = "";
+  let targetD = "";
+  if (finslresponseData.length) {
+    // =====================
+    const [s1D, s2D] = responseData;
+    sourceD = s1D.s || s2D.s;
+    targetD = s2D.t || s1D.t;
+    [
+      resolve(__dirname, taretTempFile),
+      resolve(__dirname, sourceTempFile),
+    ].forEach((unlinkPath, index) => {
+      unlink(unlinkPath, (err, data) => {
+        if (err) {
+          console.log("Error: unlink" + index, err);
+        }
+      });
+    });
+  }
+
+  return res.send([{ s: sourceD, t: targetD }]);
 });
 
 app.get("/stats", (req, res, next) => {
   res.send({
     newFiles,
     diffFiles,
-    totalScanFiles: totalScan.length
+    totalScanFiles: totalScan.length,
   });
 });
 
