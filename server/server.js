@@ -1,6 +1,7 @@
 import { XMLParser, XMLBuilder, XMLValidator } from "fast-xml-parser";
 import { detailedDiff } from "deep-object-diff";
 import express from "express";
+import fileUpload from "express-fileupload";
 import {
   readFile,
   existsSync,
@@ -12,6 +13,13 @@ import {
   readdirSync,
   statSync,
   unlink,
+  readFileSync,
+  mkdirSync,
+  lstatSync,
+  openSync,
+  createReadStream,
+  unlinkSync,
+  rmdirSync,
 } from "fs";
 import { resolve, join } from "path";
 import React from "react";
@@ -20,10 +28,9 @@ import App from "../src/App";
 import bodyParser from "body-parser";
 import { createServer } from "http";
 import * as io from "socket.io";
-import Axios from "axios";
 import transFormXMLFile from "./formatXML";
 import uniqid from "uniqid";
- 
+import unzipper from "unzipper";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -31,6 +38,7 @@ const httpServer = createServer(app);
 
 const socketIo = io(httpServer);
 
+app.use(fileUpload());
 app.use(express.static("./build"));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
@@ -117,6 +125,19 @@ const checkFileDiff = (sPath, tPath, isFirst = false) => {
         const subSPath = `${sPath}/${file}`;
         const subTPath = `${tPath}/${file}`;
         if (!existsSync(subTPath)) {
+          totalScan.push(subSPath);
+          lstat(subSPath, (err2, stats) => {
+            if (err2) {
+              throw new Error(err2);
+            }
+            const isDir = stats.isDirectory();
+            if (isDir) {
+              return setTimeout(() => {
+                checkFileDiff(resolve(subSPath), resolve(subTPath));
+                socketIo.emit("compare_done", "done");
+              }, 2000);
+            }
+          });
           return newFiles.push({
             s: subSPath,
             t: subTPath,
@@ -151,6 +172,7 @@ const checkFileDiff = (sPath, tPath, isFirst = false) => {
       files.forEach((file) => {
         const subSPath = `${sPath}/${file}`;
         const subTPath = `${tPath}/${file}`;
+        totalScan.push(subSPath);
         if (!existsSync(subTPath)) {
           return newFiles.push({
             s: subSPath,
@@ -197,38 +219,106 @@ app.get("/", (req, res) => {
   });
 });
 
-app.post("/xml", (req, res, next) => {
+// compare method
+const checkTotalFiles = (folderFilePath) => {
+  let total = 0;
+  const ThroughDirectory = (Directory) => {
+    readdirSync(Directory).forEach((File) => {
+      const Absolute = join(Directory, File);
+      if (statSync(Absolute).isDirectory()) {
+        total++;
+        return ThroughDirectory(Absolute);
+      } else return total++;
+    });
+  }
+  ThroughDirectory(folderFilePath)
+  return total;
+}
+
+const startCompare = (sourcePath, targetPath) => {
+  const parentSPath = resolve(sourcePath);
+  const parentTPath = resolve(targetPath);
+  // first call
+  socketIo.emit("compare_done", "progress");
+  setTimeout(() => {
+    checkFileDiff(parentSPath, parentTPath, true);
+    socketIo.emit("compare_done", "done");
+  }, 5000);
+};
+
+app.post("/xml", async (req, res, next) => {
   try {
     const { sourcePath, targetPath } = req.body;
+    const { isFile } = req.query;
     newFiles = [];
     diffFiles = [];
     totalScan = [];
     let totalFiles = 0;
-    if (!sourcePath || !targetPath) {
-      return res.status(400).send("Please provide paths");
+    const filesPath = __dirname + "/files";
+    
+    if(existsSync(filesPath)) {
+      rmdirSync(filesPath, { recursive: true });
     }
 
-    const parentSPath = resolve(sourcePath);
-    const parentTPath = resolve(targetPath);
-    function ThroughDirectory(Directory) {
-      readdirSync(Directory).forEach((File) => {
-        const Absolute = join(Directory, File);
-        if (statSync(Absolute).isDirectory()) {
-          totalFiles++;
-          return ThroughDirectory(Absolute);
-        } else return totalFiles++;
-      });
+    if (isFile === 'true') {
+      const fileS = req.files.sourceFile;
+      const fileT = req.files.targetFile;
+      const fileNameS = fileS.name;
+      const fileNameT = fileT.name;
+      const filesPath = __dirname + "/files";
+
+      if (!existsSync(filesPath)) {
+        mkdirSync(filesPath, { recursive: true });
+      }
+
+      await new Promise((re, rj) => {
+        fileS.mv(`${filesPath}/${fileNameS}`, (err) => {
+          if (err) {
+            throw new Error(`Error:: ${fileNameS}`);
+          }
+          fileT.mv(`${filesPath}/${fileNameT}`, (err) => {
+            if (err) {
+              throw new Error(`Error:: ${fileNameT}`);
+            }
+            const files = [
+              { type: "S", path: `${filesPath}/${fileNameS}` },
+              { type: "T", path: `${filesPath}/${fileNameT}` },
+            ];
+            let sourcePath = '';
+            let targetPath = '';
+            files.forEach(({ type, path }) => {
+              createReadStream(path)
+                .pipe(unzipper.Extract({ path: `${filesPath}/${type}` }))
+                .on("error", function(err) {
+                  throw new Error(`Error Extract:: ${filesPath}`);
+                })
+                .on("close", function() {
+                  console.log("Done.....");
+                  if (type === 'S') {
+                    sourcePath = `${filesPath}/${type}`;
+                  }
+                  if (type === 'T') {
+                    targetPath = `${filesPath}/${type}`;
+                  }
+                  if (sourcePath && targetPath) {
+                    console.log(sourcePath, targetPath);
+                    totalFiles = checkTotalFiles(sourcePath);
+                    startCompare(sourcePath, targetPath);
+                    console.log("totalFiles", totalFiles);
+                    re('done');
+                  }
+                });
+            });
+          });
+        });
+      })
+    } else {
+      if (!sourcePath || !targetPath) {
+        return res.status(400).send("Please provide paths");
+      }
+      totalFiles = checkTotalFiles(sourcePath);
+      startCompare(sourcePath, targetPath);
     }
-
-    ThroughDirectory(parentSPath);
-
-    // first call
-    socketIo.emit("compare_done", "progress");
-    setTimeout(() => {
-      checkFileDiff(parentSPath, parentTPath, true);
-      socketIo.emit("compare_done", "done");
-    }, 5000);
-
     return res
       .status(200)
       .send({ message: "Started ....... !", totalFiles: totalFiles });
@@ -236,8 +326,6 @@ app.post("/xml", (req, res, next) => {
     throw new Error(error);
   }
 });
-
-
 
 app.post("/fileData", async (req, res) => {
   const { source, target } = req.body;
@@ -333,49 +421,41 @@ app.get("/health", (req, res) => {
 });
 
 app.post("/saveFile", (req, res) => {
-  const { target, source } = req.body;
-  if (!target) {
-    return res.status(400).send({ message: "path is not correct" });
+  try {
+    const { target, source } = req.body;
+    if (!target) {
+      return res.status(400).send({ message: "path is not correct" });
+    }
+    // Saving File
+    const stats = lstatSync(source);
+    const isDir = stats.isDirectory();
+    if (isDir) {
+      mkdirSync(target);
+    } else {
+      const data = readFileSync(resolve(source), { encoding: "utf-8" });
+      writeFileSync(target, data, { encoding: "utf-8" });
+    }
+    return res.status(200).send({ message: "Saved Successfully" });
+  } catch (error) {
+    return res.status(500).send({ message: "Somthing went wrong" });
   }
-
-  if (target && !existsSync(target)) {
-    lstat(source, (err, data) => {
-      if (err) {
-        throw new Error("Error file");
-      }
-      const isDir = data.isDirectory();
-      if (isDir) {
-        mkdir(target, (err, filePtah) => {
-          if (err) {
-            throw new Error("Error file");
-          }
-          socketIo.emit("save_file", { message: "saved", path: source });
-        });
-      } else {
-        new Promise((resolveP) => {
-          readFile(resolve(source), "utf8", (err, data) => {
-            if (err) {
-              console.log(err, "err");
-              throw new Error("something went wrong....!");
-            }
-            return resolveP(data);
-          });
-        })
-          .then((resData) => {
-            writeFile(target, resData, (err, ress) => {
-              if (err) {
-                console.log(err);
-                throw new Error("something went wrong....!");
-              }
-              socketIo.emit("save_file", { message: "saved", path: source });
-            });
-          })
-          .catch((err) => console.log(err, "error:::"));
-      }
-    });
-  }
-  return res.status(200).send("proccessing...");
 });
+
+app.get("/local/file", (req, res) => {
+  const { path } = req.query;
+  const data = readFileSync(path, "utf-8");
+  return res.send(data);
+});
+
+app.post("/xmlFile", (req, res) => {
+  const fileS = req.files.sourceFile;
+  const fileT = req.files.targetFile;
+  const fileNameS = fileS.name;
+  const fileNameT = fileT.name;
+
+  console.log("fileS", fileS, fileT);
+});
+// end
 
 httpServer.listen(port, () => {
   console.log(`listening on *:${port}`);
@@ -384,9 +464,3 @@ httpServer.listen(port, () => {
 socketIo.on("connection", (socket) => {
   console.log("new client connected");
 });
-
-// if (process.env.IS_PROD) {
-//   setInterval(function() {
-//     Axios.get("https://file-compare-react-merge.herokuapp.com/health");
-//   }, 300000);
-// }

@@ -4,7 +4,7 @@ import { ListCard } from "../components";
 export default function DiffList({listDiff = [], handleDiff}) {
   return (
     <div>
-      <div style={{ overflowY: "scroll", height: "20rem" }}>
+      <div style={{ overflowY: "scroll" }}>
         {listDiff.length ? (
           listDiff
             .sort((a, b) => {

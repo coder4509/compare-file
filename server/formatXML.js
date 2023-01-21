@@ -1,10 +1,18 @@
-import { readFile, writeFileSync, createReadStream, unlink } from "fs";
+import {
+  readFile,
+  writeFileSync,
+  createReadStream,
+  unlink
+} from "fs";
 import { createInterface } from "readline";
 import { resolve } from "path";
 import { Readable } from "stream";
 import { XMLParser, XMLBuilder, XMLValidator } from "fast-xml-parser";
 import uniqid from "uniqid";
 import json from "json-keys-sort";
+import sortJSON from "sort-json";
+
+const options = { ignoreCase: true, reverse: false };
 
 const optionsP = {
   allowBooleanAttributes: true,
@@ -23,6 +31,55 @@ const sortJsonChild = (mainData, jsonData, key, holdPosition) => {
       }
     });
   }
+};
+
+// sort key inside xml tag
+const sortXMLTagKeys = (xmlData) => {
+  const parser = new XMLParser(optionsP);
+  let jsonObj = parser.parse(xmlData);
+  const data = sortObject(jsonObj);
+  const ObjJson = (dataP) => {
+    let json = {};
+    const { index, key, data } = dataP;
+    if (index !== undefined && data.length) {
+      const attr = {};
+      data.forEach((vD) => {
+        const { v, dataVal, index, key } = vD;
+        if (index !== undefined) {
+          const fData = { ...ObjJson(vD)[key] };
+          const newKey = key.replace(`${index}_xml_sort_`, "");
+          attr[`${index}_xml_sort_${newKey}`] = fData;
+        } else {
+          attr[v] = dataVal;
+        }
+      });
+      const fData = JSON.parse(JSON.stringify(sortJSON(attr, options)));
+      json[key] = fData;
+    }
+    return json;
+  };
+  let objJSON = {};
+  data
+    .map((dataItem) => ObjJson(dataItem))
+    .forEach((data) => {
+      objJSON = { ...objJSON, ...data };
+    });
+  const pattern = /[\d]\_\w+\_/gi;
+  const formmatedXML = JSON.stringify(objJSON).replace(pattern, '');
+  return JSON.parse(formmatedXML);
+};
+
+const sortObject = (mainObj) => {
+  const ObjectA = [];
+  Object.keys(mainObj).forEach((v, index) => {
+    const KeyData = mainObj[v];
+    if (KeyData && typeof KeyData === "object") {
+      ObjectA.push({ index: index, key: v, data: sortObject(KeyData) });
+    } else {
+      ObjectA.push({ v, dataVal: KeyData });
+    }
+  });
+  return ObjectA;
 };
 
 const createXmlToJson = (xmlData) => {
@@ -109,7 +166,8 @@ const transFormXMLFile = (filepath, type) => {
         rejj(err);
         throw new Error("Error");
       }
-      const xmlData = createXmlToJson(data);
+      // const xmlData = createXmlToJson(data);
+      const xmlData = sortXMLTagKeys(data);
       const newData = tranformJsonData(xmlData);
       const builder = new XMLBuilder({
         ...optionsP,

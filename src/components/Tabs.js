@@ -1,46 +1,6 @@
-import React, { useState } from "react";
-import { DiffList, NewList } from "../module";
+import React from "react";
 
-const tabs = [
-  {
-    name: "Total New",
-    isSelected: false,
-    id: "newFile",
-  },
-  {
-    name: "Total Diff",
-    isSelected: true,
-    id: "diffFile",
-  },
-];
-
-export default function TabView({
-  listDiff = [],
-  listNew = [],
-  handleNew,
-  handleDiff,
-  statsData,
-}) {
-  const [tabList, setTabs] = useState(tabs);
-
-  const showHideClass = (idName) => {
-    return tabList.some((item) => {
-      return idName === item.id && item.isSelected;
-    });
-  };
-
-  const selectTab = (idtab) => {
-    const newArr = tabList.map((itemD) => {
-      if (itemD.id === idtab) {
-        itemD.isSelected = true;
-        return itemD;
-      }
-      itemD.isSelected = false;
-      return itemD;
-    });
-    setTabs([...newArr]);
-  };
-
+export default function TabView({ statsData, selectTab, tabList }) {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-around" }}>
@@ -66,14 +26,6 @@ export default function TabView({
         })}
       </div>
       <hr />
-      <div>
-        <div id={showHideClass('newFile') ? "show" : "hide"}>
-          <NewList listNew={listNew} handleNew={handleNew} />
-        </div>
-        <div id={showHideClass('diffFile') ? "show" : "hide"}>
-          <DiffList listDiff={listDiff} handleDiff={handleDiff} />
-        </div>
-      </div>
     </div>
   );
 }

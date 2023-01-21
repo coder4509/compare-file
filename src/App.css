@@ -154,7 +154,7 @@ button:hover {
   transform: translate(-50%, -50%);
 }
 
-#overlay {
+#overlay, #overlay2 {
   position: fixed;
   display: none;
   width: 100%;
@@ -184,4 +184,35 @@ button:hover {
   border-radius: 3px;
   text-align: center;
   transition: width 500ms ease-in-out;
+}
+
+.mergly-Handler button, .mergly-Handler div {
+  margin-left: 1.5rem;
+}
+
+.merglySearch {
+  padding: 1rem;
+    width: 24rem;
+    border-radius: 8px;
+}
+
+.main-section-header {
+   background-color: #ddd;
+    position: fixed;
+    padding: 2em;
+    left: 50%;
+    top: 0%;
+    transform: translateX(-50%);
+    width: 100%;
+}
+
+.file-upload-section {
+  display: flex; 
+  justify-content: space-evenly;
+}
+.select-compare-type {
+  border: 1px dotted;
+  display: flex;
+  justify-content: center;
+  margin: 19px;
 }

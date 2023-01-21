@@ -4,7 +4,11 @@ export default function MergelyEditor(props) {
   const { lhsData = "", rhsData = "" } = props;
   useEffect(() => {
     if (window && window.$) {
-      window.$("#mergely").mergely();
+      window.$("#mergely").mergely({
+        autoresize: true,
+        sidebar: true,
+        wrap_lines: true
+      });
       window.$("#mergely").mergely("lhs", lhsData);
       window.$("#mergely").mergely("rhs", rhsData);
     }

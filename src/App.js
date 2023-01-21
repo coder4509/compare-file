@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { MergelyEditor, TabView } from "./components";
+import { MergelyEditor, TabView, FileUpload } from "./components";
 import { startFileCompare, getStats, getFileData, saveFile } from "./services";
 import io from "socket.io-client";
+import { DiffList, NewList } from "./module";
 import "./App.css";
 
 const initialState = {
@@ -10,6 +11,19 @@ const initialState = {
   total: 0,
   scan: 0,
 };
+
+const tabs = [
+  {
+    name: "Total New",
+    isSelected: false,
+    id: "newFile",
+  },
+  {
+    name: "Total Diff",
+    isSelected: true,
+    id: "diffFile",
+  },
+];
 
 const socket = io();
 function App() {
@@ -24,6 +38,7 @@ function App() {
     sourcePath: "",
     targetPath: "",
   });
+  const [tabList, setTabs] = useState(tabs);
 
   const [statsData, setStatsData] = useState(initialState);
 
@@ -31,6 +46,12 @@ function App() {
   const [listNew, setListNew] = useState([]);
 
   const [startAgain, setStartAgain] = useState(false);
+
+  const [fileS, setFileS] = useState();
+  const [fileT, setFileT] = useState();
+  const [fileNameS, setFileNameS] = useState("");
+  const [fileNameT, setFileNameT] = useState("");
+  const [isFile, setIsFile] = useState(false);
 
   useEffect(() => {
     console.log("isConnected", isConnected);
@@ -69,6 +90,18 @@ function App() {
       socket.off("disconnect");
     };
   }, []);
+
+  const selectTab = (idtab) => {
+    const newArr = tabList.map((itemD) => {
+      if (itemD.id === idtab) {
+        itemD.isSelected = true;
+        return itemD;
+      }
+      itemD.isSelected = false;
+      return itemD;
+    });
+    setTabs([...newArr]);
+  };
 
   const handleInput = (e) => {
     const val = e.target.value;
@@ -120,18 +153,49 @@ function App() {
     }));
 
     setStartAgain(true);
-    startFileCompare(formData.sourcePath, formData.targetPath)
-      .then((res) => {
-        const { totalFiles = 0 } = res.data;
-        setStatsData((preState) => ({
-          ...preState,
-          total: totalFiles || 0,
-        }));
-      })
-      .catch((err) => {
+    if (isFile) {
+      if (!fileNameS || !fileNameT) {
         setStartAgain(false);
-        console.log("Error:UI::startFileCompare", err);
-      });
+        return alert("please upload source & target files");
+      }
+      const formFileData = new FormData();
+      formFileData.append("sourceFile", fileS);
+      formFileData.append("targetFile", fileT);
+      formFileData.append("sourcefileName", fileNameS);
+      formFileData.append("targetfileName", fileNameT);
+      startFileCompare({ isFile, formFileData })
+        .then((res) => {
+          const { totalFiles = 0 } = res.data;
+          setStatsData((preState) => ({
+            ...preState,
+            total: totalFiles || 0,
+          }));
+        })
+        .catch((err) => {
+          setStartAgain(false);
+          console.log("Error:UI::startFileCompare", err);
+        });
+    } else {
+      setFileNameS("");
+      setFileNameT("");
+      setFileS(null);
+      setFileT(null);
+      startFileCompare({
+        spath: formData.sourcePath,
+        tpath: formData.targetPath,
+      })
+        .then((res) => {
+          const { totalFiles = 0 } = res.data;
+          setStatsData((preState) => ({
+            ...preState,
+            total: totalFiles || 0,
+          }));
+        })
+        .catch((err) => {
+          setStartAgain(false);
+          console.log("Error:UI::startFileCompare", err);
+        });
+    }
   };
 
   const fetchFilesData = async (spath, tpath) => {
@@ -170,10 +234,12 @@ function App() {
   };
 
   const handleNewFile = (e, source, target) => {
-    console.log("source", source);
-    console.log("target", target);
     saveFile(source, target)
-      .then((res) => console.log("Response", res))
+      .then((res) => {
+        if (res.status === 200) {
+          alert("file saved");
+        }
+      })
       .catch((err) => {
         setStartAgain(false);
         console.log("Error:UI::handleNewFile", err);
@@ -185,6 +251,29 @@ function App() {
     }
     return Math.ceil((statsData.scan / statsData.total) * 100);
   };
+
+  // Mergely search
+  const searchText = (textToSearch = "") => {
+    if (window && window.$) {
+      window.$("#mergely").mergely("search", "lhs", textToSearch);
+      window.$("#mergely").mergely("search", "rhs", textToSearch);
+    }
+  };
+
+  const showHideClass = (idName) => {
+    return tabList.some((item) => {
+      return idName === item.id && item.isSelected;
+    });
+  };
+
+  function handleRadioClick(e) {
+    const { value } = e.target;
+    if (value === "FILE") {
+      return setIsFile(true);
+    }
+    return setIsFile(false);
+  }
+
   return (
     <div>
       <div
@@ -203,7 +292,7 @@ function App() {
         >
           <button
             onClick={() => {
-              setStartAgain(true);
+              setStartAgain(false);
             }}
           >
             Close
@@ -222,39 +311,72 @@ function App() {
           </div>
         </div>
       </div>
-      <div>
-        <div style={{ textAlign: "center" }}>
-          <h3>Compare XML files quickly</h3>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-evenly" }}>
-          <div style={{ display: "block" }}>
-            <label>Source Path</label> <br />
-            <input
-              type="text"
-              value={formData.sourcePath}
-              onChange={handleInput}
-              id="source"
-              name="sourcePath"
-            />
+      <div className="main-section-header">
+        {/* 1 section */}
+        <div>
+          <div style={{ textAlign: "center" }}>
+            <h3>Compare & Sort XML</h3>
           </div>
-          {/* Target */}
-          <div style={{ display: "block" }}>
-            <label>Target Path</label> <br />
-            <input
-              type="text"
-              value={formData.targetPath}
-              onChange={handleInput}
-              id="target"
-              name="targetPath"
+          <div className="select-compare-type">
+            <div>
+              <input
+                type="radio"
+                id="path"
+                name="compare_type"
+                value="PATH"
+                onClick={handleRadioClick}
+              />
+              <label for="path">PATH</label>
+            </div>
+            <div>
+              <input
+                type="radio"
+                id="file"
+                name="compare_type"
+                value="FILE"
+                onClick={handleRadioClick}
+              />
+              <label for="file">FILE</label>
+            </div>
+          </div>
+          {!isFile && (
+            <div style={{ display: "flex", justifyContent: "space-evenly" }}>
+              <div style={{ display: "block" }}>
+                <label>Source Path</label> <br />
+                <input
+                  type="text"
+                  value={formData.sourcePath}
+                  onChange={handleInput}
+                  id="source"
+                  name="sourcePath"
+                />
+              </div>
+              {/* Target */}
+              <div style={{ display: "block" }}>
+                <label>Target Path</label> <br />
+                <input
+                  type="text"
+                  value={formData.targetPath}
+                  onChange={handleInput}
+                  id="target"
+                  name="targetPath"
+                />
+              </div>
+            </div>
+          )}
+          {isFile && (
+            <FileUpload
+              setFileS={setFileS}
+              setFileNameS={setFileNameS}
+              setFileT={setFileT}
+              setFileNameT={setFileNameT}
             />
+          )}
+          <div style={{ textAlign: "center" }}>
+            <button onClick={startCompare}>Start Compare</button>
           </div>
         </div>
-        <div style={{ textAlign: "center" }}>
-          <button onClick={startCompare}>Start Compare</button>
-        </div>
-      </div>
-      <hr />
-      <div>
+        <hr />
         <div style={{ display: "flex", margin: 15 }}>
           <div style={{ width: "20%" }}>
             Total Files <span className="badge">{statsData.total}</span>
@@ -267,15 +389,27 @@ function App() {
           </div>
         </div>
         <hr />
-        <TabView
-          handleDiff={handleDiff}
-          listDiff={listDiff}
-          listNew={listNew}
-          handleNew={handleNewFile}
-          statsData={statsData}
-        />
+        <div>
+          <TabView
+            statsData={statsData}
+            selectTab={selectTab}
+            tabList={tabList}
+          />
+        </div>
       </div>
-
+      <div
+        style={{
+          position: "inherit",
+          marginTop: "26rem",
+        }}
+      >
+        <div id={showHideClass("newFile") ? "show" : "hide"}>
+          <NewList listNew={listNew} handleNew={handleNewFile} />
+        </div>
+        <div id={showHideClass("diffFile") ? "show" : "hide"}>
+          <DiffList listDiff={listDiff} handleDiff={handleDiff} />
+        </div>
+      </div>
       <div>
         {mergelyShow.isShow && mergelyShow.lhsData && mergelyShow.rhsData && (
           <>
@@ -286,18 +420,29 @@ function App() {
                 top: 0,
                 margin: "7px",
                 width: "100%",
-                background: "white",
+                background: "#ddd",
               }}
             >
-              <div style={{ display: "flex" }}>
-                <div style={{ flex: 5 }}>
-                  <button onClick={closeDiff}>Close</button>
-                </div>
-                <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", marginBottom: "1rem" }}>
+                <div
+                  style={{ flex: 1, display: "flex" }}
+                  className="mergly-Handler"
+                >
                   <button onClick={() => handleDiffPos("next")}>Next</button>
-                </div>
-                <div style={{ flex: 6 }}>
                   <button onClick={() => handleDiffPos("prev")}>Prev</button>
+                  <div>
+                    <input
+                      type="search"
+                      className="merglySearch"
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        searchText(value);
+                      }}
+                    />
+                  </div>
+                </div>
+                <div style={{ flex: 1, textAlign: "end", marginRight: "2rem" }}>
+                  <button onClick={closeDiff}>Close</button>
                 </div>
               </div>
             </div>

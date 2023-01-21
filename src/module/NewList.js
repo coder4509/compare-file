@@ -4,7 +4,7 @@ import { ListCard } from "../components";
 export default function NewList({ listNew = [] , handleNew}) {
   return (
     <div>
-      <div style={{ overflowY: "scroll", height: "20rem" }}>
+      <div style={{ overflowY: "scroll" }}>
         {listNew.length ? (
           listNew
             .sort((a, b) => {
