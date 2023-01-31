@@ -16,12 +16,12 @@ const FileUpload = (props) => {
 
   return (
     <div className="file-upload-section">
-      <div>
+      <div className="block-view">
         <label>Source File</label>
         <input type="file" onChange={(e) => saveFile(e, "S")} />
       </div>
 
-      <div>
+      <div className="block-view">
         <label>Target File</label>
         <input type="file" onChange={(e) => saveFile(e, "T")} />
       </div>

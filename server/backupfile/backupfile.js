@@ -1,5 +1,6 @@
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
-import XMLValidator from "w3c-xml-validator";
+import XMLValidator from 'w3c-xml-validator';
+import { detailedDiff } from "deep-object-diff";
 import express from "express";
 import fileUpload from "express-fileupload";
 import {
@@ -17,24 +18,23 @@ import {
   createReadStream,
   rmdirSync,
 } from "fs";
-import { resolve } from "path";
+import { resolve, join } from "path";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
+import App from "../src/App";
 import bodyParser from "body-parser";
 import { createServer } from "http";
 import * as io from "socket.io";
+import transFormXMLFile from "./formatXML";
 import uniqid from "uniqid";
 import unzipper from "unzipper";
-
-// Local imports
-import App from "../src/App";
-import transFormXMLFile from "./utils/formatXML";
-import getDiffOverView from "./utils/overviewFile";
-import { checkTotalFiles, startCompare } from "./utils/utils";
+import getDiffOverView from "./overViewFile";
+import { checkTotalFiles, startCompare } from './utils/utils';
 
 const app = express();
 const port = process.env.PORT || 3000;
 const httpServer = createServer(app);
+
 const socketIo = io(httpServer);
 
 app.use(fileUpload());
@@ -42,7 +42,6 @@ app.use(express.static("./build"));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-// Golbal variables
 let newFiles = [];
 let diffFiles = [];
 let totalScan = [];
@@ -52,8 +51,161 @@ const optionsP = {
   suppressBooleanAttributes: false,
   preserveOrder: true,
 };
+// const compareDiff = (spath, tpath) => {
+//   totalScan.push(spath);
+//   const sourceDataPromise = new Promise((resolvePro, rejectPro) => {
+//     readFile(spath, "utf-8", (err, dataS) => {
+//       if (err) {
+//         return rejectPro(new Error(err));
+//       }
+//       const sourceParser = new XMLParser({
+//         ignoreAttributes: false,
+//         ...optionsP,
+//       });
+//       const lhs = sourceParser.parse(dataS);
+//       resolvePro({ lhs });
+//     });
+//   });
 
-// Api endpoints
+//   // Promise for Target Data
+//   const targetDataPromise = new Promise((resolveTPro, rejectTPro) => {
+//     readFile(tpath, "utf-8", (err, dataT) => {
+//       if (err) {
+//         return rejectTPro(new Error(err));
+//       }
+//       const sourceParser = new XMLParser({
+//         ignoreAttributes: false,
+//         ...optionsP,
+//       });
+//       const rhs = sourceParser.parse(dataT);
+//       resolveTPro({ rhs });
+//     });
+//   });
+
+//   // Resolve both Promises
+//   Promise.all([sourceDataPromise, targetDataPromise])
+//     .then((datas) => {
+//       const [data1, data2] = datas;
+//       const { lhs: lhs_1, rhs: rhsD } = data1;
+//       const { rhs: rhs_1, lhs: lhsD } = data2;
+//       const { added = {}, deleted = {}, updated = {} } = detailedDiff(
+//         lhs_1 || lhsD,
+//         rhs_1 || rhsD
+//       );
+//       const totalDiff =
+//         Object.keys(added).length +
+//         Object.keys(deleted).length +
+//         Object.keys(updated).length;
+//       if (
+//         Object.keys(added).length ||
+//         Object.keys(deleted).length ||
+//         Object.keys(updated).length
+//       ) {
+//         diffFiles.push({
+//           s: spath,
+//           t: tpath,
+//           diffTotal: totalDiff,
+//         });
+//       }
+//     })
+//     .catch((err) => {
+//       throw new Error(err);
+//     });
+// };
+
+// const checkFileDiff = (sPath, tPath, isFirst = false) => {
+//   // check if file or folder exists
+//   socketIo.emit("compare_done", "progress");
+//   if (!isFirst) {
+//     totalScan.push(sPath);
+//   }
+//   if (existsSync(sPath) && existsSync(tPath)) {
+//     readdir(sPath, (err, files) => {
+//       if (err) {
+//         throw new Error(err);
+//       }
+//       files.forEach((file) => {
+//         const subSPath = `${sPath}/${file}`;
+//         const subTPath = `${tPath}/${file}`;
+//         if (!existsSync(subTPath)) {
+//           totalScan.push(subSPath);
+//           lstat(subSPath, (err2, stats) => {
+//             if (err2) {
+//               throw new Error(err2);
+//             }
+//             const isDir = stats.isDirectory();
+//             if (isDir) {
+//               return setTimeout(() => {
+//                 checkFileDiff(resolve(subSPath), resolve(subTPath));
+//                 socketIo.emit("compare_done", "done");
+//               }, 2000);
+//             }
+//           });
+//           return newFiles.push({
+//             s: subSPath,
+//             t: subTPath,
+//           });
+//         }
+//         return lstat(subSPath, (err2, stats) => {
+//           if (err2) {
+//             throw new Error(err2);
+//           }
+//           const isDir = stats.isDirectory();
+//           if (isDir) {
+//             return setTimeout(() => {
+//               checkFileDiff(resolve(subSPath), resolve(subTPath));
+//               socketIo.emit("compare_done", "done");
+//             }, 2000);
+//           } else {
+//             socketIo.emit("compare_done", "progress");
+//             return setTimeout(() => {
+//               compareDiff(subSPath, subTPath, totalScan);
+//               socketIo.emit("compare_done", "done");
+//             }, 2000);
+//           }
+//         });
+//       });
+//     });
+//   } else {
+//     socketIo.emit("compare_done", "done");
+//     readdir(sPath, (err, files) => {
+//       if (err) {
+//         throw new Error(err);
+//       }
+//       files.forEach((file) => {
+//         const subSPath = `${sPath}/${file}`;
+//         const subTPath = `${tPath}/${file}`;
+//         totalScan.push(subSPath);
+//         if (!existsSync(subTPath)) {
+//           return newFiles.push({
+//             s: subSPath,
+//             t: subTPath,
+//           });
+//         }
+//         return lstat(subSPath, (err2, stats) => {
+//           if (err2) {
+//             throw new Error(err2);
+//           }
+//           const isDir = stats.isDirectory();
+//           if (isDir) {
+//             socketIo.emit("compare_done", "progress");
+//             return setTimeout(() => {
+//               checkFileDiff(resolve(subSPath), resolve(subTPath));
+//               socketIo.emit("compare_done", "done");
+//             }, 2000);
+//           } else {
+//             socketIo.emit("compare_done", "done");
+//             return newFiles.push({
+//               s: subSPath,
+//               t: subTPath,
+//             });
+//           }
+//         });
+//       });
+//     });
+//   }
+// };
+
 app.get("/", (req, res) => {
   const app = ReactDOMServer.renderToString(<App />);
   const indexFile = resolve("./build/index.html");
@@ -70,35 +222,32 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/stats", (req, res, next) => {
-  res.send({
-    newFiles,
-    diffFiles,
-    totalScanFiles: totalScan.length,
-  });
-});
+// compare method
+// const checkTotalFiles = (folderFilePath) => {
+//   let total = 0;
+//   const ThroughDirectory = (Directory) => {
+//     readdirSync(Directory).forEach((File) => {
+//       const Absolute = join(Directory, File);
+//       if (statSync(Absolute).isDirectory()) {
+//         total++;
+//         return ThroughDirectory(Absolute);
+//       } else return total++;
+//     });
+//   };
+//   ThroughDirectory(folderFilePath);
+//   return total;
+// };
 
-app.get("/local/file", (req, res) => {
-  const { path } = req.query;
-  const data = readFileSync(path, "utf-8");
-  return res.send(data);
-});
-
-app.get("/single/xml", (req, res) => {
-  const app = ReactDOMServer.renderToString(<App singleView={true} />);
-  const indexFile = resolve("./build/index.html");
-
-  readFile(indexFile, "utf8", (err, data) => {
-    if (err) {
-      console.error("Something went wrong:", err);
-      throw new Error("Something went wrong....!");
-    }
-
-    return res.send(
-      data.replace('<div id="root"></div>', `<div id="root">${app}</div>`)
-    );
-  });
-});
+// const startCompare = (sourcePath, targetPath) => {
+//   const parentSPath = resolve(sourcePath);
+//   const parentTPath = resolve(targetPath);
+//   // first call
+//   socketIo.emit("compare_done", "progress");
+//   setTimeout(() => {
+//     checkFileDiff(parentSPath, parentTPath, true, totalScan, newFiles, socketIo);
+//     socketIo.emit("compare_done", "done");
+//   }, 5000);
+// };
 
 app.post("/xml", async (req, res, next) => {
   try {
@@ -157,14 +306,7 @@ app.post("/xml", async (req, res, next) => {
                   if (sourcePath && targetPath) {
                     console.log(sourcePath, targetPath);
                     totalFiles = checkTotalFiles(sourcePath);
-                    startCompare(
-                      sourcePath,
-                      targetPath,
-                      totalScan,
-                      newFiles,
-                      diffFiles,
-                      socketIo
-                    );
+                    startCompare(sourcePath, targetPath, totalScan, newFiles, diffFiles, socketIo);
                     console.log("totalFiles", totalFiles);
                     re("done");
                   }
@@ -178,14 +320,7 @@ app.post("/xml", async (req, res, next) => {
         return res.status(400).send("Please provide paths");
       }
       totalFiles = checkTotalFiles(sourcePath);
-      startCompare(
-        sourcePath,
-        targetPath,
-        totalScan,
-        newFiles,
-        diffFiles,
-        socketIo
-      );
+      startCompare(sourcePath, targetPath, totalScan, newFiles, diffFiles, socketIo);
     }
     return res
       .status(200)
@@ -219,8 +354,8 @@ app.post("/fileData", async (req, res) => {
     ...optionsP,
   });
   // ====================================
-  const targetDataD = tData && targetParser.parse(tData) || {};
-  const sourceDataD = sData && soruceParser.parse(sData) || {};
+  const targetDataD = targetParser.parse(tData);
+  const sourceDataD = soruceParser.parse(sData);
   // const options = { ignoreCase: true, reverse: false, depth: 1, indentSize: 2 };
   const fSData = sourceDataD;
   const fTData = targetDataD;
@@ -272,7 +407,19 @@ app.post("/fileData", async (req, res) => {
       });
     });
   }
-  return res.send([{ s: sourceD || '', t: targetD || '' }]);
+  return res.send([{ s: sourceD, t: targetD }]);
+});
+
+app.get("/stats", (req, res, next) => {
+  res.send({
+    newFiles,
+    diffFiles,
+    totalScanFiles: totalScan.length,
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.send("system healthly.....");
 });
 
 app.post("/saveFile", (req, res) => {
@@ -296,24 +443,46 @@ app.post("/saveFile", (req, res) => {
   }
 });
 
+app.get("/local/file", (req, res) => {
+  const { path } = req.query;
+  const data = readFileSync(path, "utf-8");
+  return res.send(data);
+});
+// end
+
 app.post("/diff/overview", async (req, res) => {
   const { sourcePath, targetPath } = req.body;
   const result = await getDiffOverView(sourcePath, targetPath);
   return res.send(result);
 });
 
+// update file data
 app.post("/update/file", (req, res) => {
   const { fileData, filePath } = req.body;
   writeFileSync(resolve(__dirname, filePath), fileData, "utf-8");
   return res.send({ message: "file updated successfully.", filePath });
 });
 
+app.get("/single/xml", (req, res) => {
+  const app = ReactDOMServer.renderToString(<App singleView={true} />);
+  const indexFile = resolve("./build/index.html");
+
+  readFile(indexFile, "utf8", (err, data) => {
+    if (err) {
+      console.error("Something went wrong:", err);
+      throw new Error("Something went wrong....!");
+    }
+
+    return res.send(
+      data.replace('<div id="root"></div>', `<div id="root">${app}</div>`)
+    );
+  });
+});
+
 app.post("/sort/validate", async (req, res) => {
   const { fileData } = req.body;
   if (!fileData) {
-    return res
-      .status(400)
-      .send({ message: "please provide data", result: null });
+    return res.status(400).send({ message: "please provide data", result: null });
   }
   const sourceTempFile = `${uniqid()}_source.xml`;
   writeFileSync(resolve(__dirname, sourceTempFile), fileData, "utf-8");
@@ -359,7 +528,7 @@ app.post("/sort/validate", async (req, res) => {
     });
   }
   const result = await XMLValidator(sourceD);
-  console.log("result", result);
+  console.log('result', result)
   if (!result) {
     return res.status(400).send({ message: "xml not valid", result });
   }
@@ -367,10 +536,6 @@ app.post("/sort/validate", async (req, res) => {
 });
 
 // ====================================================>
-
-app.get("/health", (req, res) => {
-  res.send("system healthly.....");
-});
 
 httpServer.listen(port, () => {
   console.log(`listening on *:${port}`);

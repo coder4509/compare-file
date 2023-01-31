@@ -9,6 +9,7 @@ export default function ListCard(props) {
     indexKey,
     position,
     isNew = false,
+    diffTotal
   } = props;
   return (
     <div

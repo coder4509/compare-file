@@ -1,13 +1,16 @@
-import React from 'react';
-import { hydrateRoot } from 'react-dom/client';
-import './index.css';
-import App from './App';
+import React from "react";
+import { hydrateRoot } from "react-dom/client";
+import "./index.css";
+import App from "./App";
+import { BrowserRouter } from "react-router-dom";
 // import reportWebVitals from './reportWebVitals';
 
 hydrateRoot(
-  document.getElementById('root'),
+  document.getElementById("root"),
   <React.StrictMode>
-    <App />
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </React.StrictMode>
 );
 

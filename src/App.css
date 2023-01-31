@@ -39,6 +39,13 @@ textarea {
   resize: vertical;
 }
 
+input[type="file"] {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
 label {
   padding: 12px 12px 12px 0;
   display: inline-block;
@@ -154,7 +161,8 @@ button:hover {
   transform: translate(-50%, -50%);
 }
 
-#overlay, #overlay2 {
+#overlay,
+#overlay2 {
   position: fixed;
   display: none;
   width: 100%;
@@ -163,7 +171,7 @@ button:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0,0,0,0.5);
+  background-color: rgba(0, 0, 0, 0.5);
   z-index: 2;
   cursor: pointer;
 }
@@ -186,33 +194,76 @@ button:hover {
   transition: width 500ms ease-in-out;
 }
 
-.mergly-Handler button, .mergly-Handler div {
+.mergly-Handler button,
+.mergly-Handler div {
   margin-left: 1.5rem;
 }
 
 .merglySearch {
   padding: 1rem;
-    width: 24rem;
-    border-radius: 8px;
+  width: 24rem;
+  border-radius: 8px;
 }
 
 .main-section-header {
-   background-color: #ddd;
-    position: fixed;
-    padding: 2em;
-    left: 50%;
-    top: 0%;
-    transform: translateX(-50%);
-    width: 100%;
+  background-color: #ddd;
+  position: fixed;
+  padding: 2em;
+  left: 50%;
+  top: 0%;
+  transform: translateX(-50%);
+  width: 100%;
 }
 
 .file-upload-section {
-  display: flex; 
+  display: flex;
   justify-content: space-evenly;
+  max-height: 80px;
 }
 .select-compare-type {
   border: 1px dotted;
   display: flex;
   justify-content: center;
   margin: 19px;
+}
+
+.menu {
+  position: absolute;
+  z-index: 9999;
+  top: 0;
+  padding: 0.2rem;
+  margin: 1rem;
+}
+
+.block-view {
+  display: block;
+}
+
+.newSort {
+      width: fit-content;
+      padding: 10px;
+      position: absolute;
+      border-radius: 10px;
+      margin-top: 0.2rem;
+      margin-left: 1.4rem;
+      cursor: pointer;
+}
+
+.sort-container {
+  display: flex;
+  justify-self: center;
+}
+
+.item-flex-1 {
+  flex: 5;
+  border: 1px solid orange;
+}
+
+.item-flex-small {
+  flex: 0.1
+}
+
+.button-center {
+  text-align: center;
+  padding: 10px;
 }

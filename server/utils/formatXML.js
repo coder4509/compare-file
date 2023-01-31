@@ -296,4 +296,30 @@ const formatXMLFile = async (filePath, type) => {
   return { [type]: firstResult };
 };
 
+export const createHtmlViewFromText = async (data) => {
+  const fileStream = Readable.from(data, { encoding: "utf8" });
+  let html = '';
+  if (fileStream) {
+    const rl = createInterface({
+      input: fileStream,
+      crlfDelay: Infinity,
+    });
+    for await (const line of rl) {
+      const isStartWithPlus = line.startsWith('+');
+      const isStartWithMinus = line.startsWith('-');
+      let style = '';
+      if (isStartWithPlus) {
+        style = `color: green;
+        background: lightyellow;`;
+      }
+      if (isStartWithMinus) {
+        style = `color: #dc0909;
+        background: lightyellow;`;
+      }
+      html += `<div style='${style}'>${line}</div>`
+    }
+  }
+  return html;
+}
+
 export default transFormXMLFile;

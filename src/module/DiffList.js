@@ -16,6 +16,7 @@ export default function DiffList({listDiff = [], handleDiff}) {
                   <ListCard
                     sourcePath={dataItem.s}
                     targetPath={dataItem.t}
+                    diffTotal={dataItem.diffTotal}
                     handleDiff={handleDiff}
                     indexKey={index}
                     isViewed={dataItem.isViewed || false}

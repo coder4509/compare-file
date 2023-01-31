@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const startFileCompare = async ({spath, tpath, isFile, formFileData}) => {
+const startFileCompare = async ({ spath, tpath, isFile, formFileData }) => {
   const API_URL = window && window.window.location.origin;
   if (!API_URL) {
     return false;
@@ -8,8 +8,8 @@ const startFileCompare = async ({spath, tpath, isFile, formFileData}) => {
   let postData = {
     sourcePath: spath,
     targetPath: tpath,
-  }
-  if(isFile) {
+  };
+  if (isFile) {
     console.log(formFileData);
     postData = formFileData;
   }
@@ -31,7 +31,7 @@ const getFileData = async (spath, tpath) => {
   }
   return await axios.post(`${API_URL}/fileData`, {
     source: spath,
-    target: tpath
+    target: tpath,
   });
 };
 
@@ -42,13 +42,37 @@ const saveFile = async (spath, tpath) => {
   }
   return await axios.post(`${API_URL}/saveFile`, {
     source: spath,
-    target: tpath
+    target: tpath,
   });
-}
+};
+
+const updateFile = async (fileData, filePath) => {
+  const API_URL = window && window.window.location.origin;
+  if (!API_URL) {
+    return false;
+  }
+  return await axios.post(`${API_URL}/update/file`, {
+    fileData,
+    filePath,
+  });
+};
 
 const fileUpload = async (formData) => {
   const API_URL = window && window.window.location.origin;
-    return await axios.post(`${API_URL}/xmlFile`, formData);
-}
+  return await axios.post(`${API_URL}/xmlFile`, formData);
+};
 
-export { startFileCompare, getStats , getFileData, saveFile, fileUpload};
+const sortValidate = async (fileData) => {
+  const API_URL = window && window.window.location.origin;
+  return await axios.post(`${API_URL}/sort/validate`, {fileData});
+};
+
+export {
+  startFileCompare,
+  getStats,
+  getFileData,
+  saveFile,
+  fileUpload,
+  updateFile,
+  sortValidate
+};
