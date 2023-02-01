@@ -31,6 +31,11 @@ import App from "../src/App";
 import transFormXMLFile from "./utils/formatXML";
 import getDiffOverView from "./utils/overviewFile";
 import { checkTotalFiles, startCompare } from "./utils/utils";
+import {
+  addUserSession,
+  getSessionIdData,
+  clearSessionId,
+} from "./utils/localDB";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -42,10 +47,7 @@ app.use(express.static("./build"));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-// Golbal variables
-let newFiles = [];
-let diffFiles = [];
-let totalScan = [];
+// Golbal variable
 const optionsP = {
   allowBooleanAttributes: true,
   format: true,
@@ -71,9 +73,17 @@ app.get("/", (req, res) => {
 });
 
 app.get("/stats", (req, res, next) => {
+  const { sessionId } = req.query;
+  if (!sessionId) {
+    return res.send({});
+  }
+  const statsData = getSessionIdData(sessionId);
+  const { newFiles, diffFiles, totalFiles, totalScan = [] } =
+    statsData[sessionId] || {};
   res.send({
     newFiles,
     diffFiles,
+    totalFiles,
     totalScanFiles: totalScan.length,
   });
 });
@@ -104,12 +114,12 @@ app.post("/xml", async (req, res, next) => {
   try {
     const { sourcePath, targetPath } = req.body;
     const { isFile } = req.query;
-    newFiles = [];
-    diffFiles = [];
-    totalScan = [];
+    let newFiles = [];
+    let diffFiles = [];
+    let totalScan = [];
     let totalFiles = 0;
     const filesPath = __dirname + "/files";
-
+    const sessionId = uniqid();
     if (existsSync(filesPath)) {
       rmdirSync(filesPath, { recursive: true });
     }
@@ -157,12 +167,21 @@ app.post("/xml", async (req, res, next) => {
                   if (sourcePath && targetPath) {
                     console.log(sourcePath, targetPath);
                     totalFiles = checkTotalFiles(sourcePath);
+                    addUserSession({
+                      sessionId,
+                      newFiles,
+                      diffFiles,
+                      totalFiles,
+                      totalScan,
+                    });
                     startCompare(
                       sourcePath,
                       targetPath,
                       totalScan,
                       newFiles,
                       diffFiles,
+                      totalFiles,
+                      sessionId,
                       socketIo
                     );
                     console.log("totalFiles", totalFiles);
@@ -178,18 +197,25 @@ app.post("/xml", async (req, res, next) => {
         return res.status(400).send("Please provide paths");
       }
       totalFiles = checkTotalFiles(sourcePath);
+      addUserSession({ sessionId, newFiles, diffFiles, totalFiles, totalScan });
       startCompare(
         sourcePath,
         targetPath,
         totalScan,
         newFiles,
         diffFiles,
+        totalFiles,
+        sessionId,
         socketIo
       );
     }
     return res
       .status(200)
-      .send({ message: "Started ....... !", totalFiles: totalFiles });
+      .send({
+        message: "Started ....... !",
+        totalFiles: totalFiles,
+        sessionId,
+      });
   } catch (error) {
     throw new Error(error);
   }
@@ -219,8 +245,8 @@ app.post("/fileData", async (req, res) => {
     ...optionsP,
   });
   // ====================================
-  const targetDataD = tData && targetParser.parse(tData) || {};
-  const sourceDataD = sData && soruceParser.parse(sData) || {};
+  const targetDataD = (tData && targetParser.parse(tData)) || {};
+  const sourceDataD = (sData && soruceParser.parse(sData)) || {};
   // const options = { ignoreCase: true, reverse: false, depth: 1, indentSize: 2 };
   const fSData = sourceDataD;
   const fTData = targetDataD;
@@ -272,7 +298,7 @@ app.post("/fileData", async (req, res) => {
       });
     });
   }
-  return res.send([{ s: sourceD || '', t: targetD || '' }]);
+  return res.send([{ s: sourceD || "", t: targetD || "" }]);
 });
 
 app.post("/saveFile", (req, res) => {

@@ -122,8 +122,8 @@ function Home() {
   const handleDiff = (e, spath, tpath, indexKey) => {
     fetchFilesData(spath, tpath).then((resData) => {
       const { data = [] } = resData || {};
-      const sData = data.find((datas) => datas.s) || {s: ''};
-      const tData = data.find((datat) => datat.t) || {t: ''};
+      const sData = data.find((datas) => datas.s) || { s: "" };
+      const tData = data.find((datat) => datat.t) || { t: "" };
       setFilePaths((preState) => ({
         ...preState,
         spath,
@@ -179,11 +179,12 @@ function Home() {
       formFileData.append("targetfileName", fileNameT);
       startFileCompare({ isFile, formFileData })
         .then((res) => {
-          const { totalFiles = 0 } = res.data;
+          const { totalFiles = 0, sessionId } = res.data;
           setStatsData((preState) => ({
             ...preState,
             total: totalFiles || 0,
           }));
+          sessionStorage.setItem("sessionId", sessionId);
         })
         .catch((err) => {
           setStartAgain(false);
@@ -199,11 +200,12 @@ function Home() {
         tpath: formData.targetPath,
       })
         .then((res) => {
-          const { totalFiles = 0 } = res.data;
+          const { totalFiles = 0, sessionId } = res.data;
           setStatsData((preState) => ({
             ...preState,
             total: totalFiles || 0,
           }));
+          sessionStorage.setItem("sessionId", sessionId);
         })
         .catch((err) => {
           setStartAgain(false);
@@ -217,9 +219,10 @@ function Home() {
   };
 
   const fetchStats = () => {
-    getStats()
+    const sessionId = sessionStorage.getItem("sessionId");
+    getStats(sessionId)
       .then((res) => {
-        const dataList = res && res.data && res.data.diffFiles;
+        const dataList = (res && res.data && res.data.diffFiles) || [];
         const dataListNew = dataList.map((item, index) => {
           item.pos = index;
           return item;

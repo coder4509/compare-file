@@ -16,12 +16,12 @@ const startFileCompare = async ({ spath, tpath, isFile, formFileData }) => {
   return await axios.post(`${API_URL}/xml?isFile=${isFile}`, postData);
 };
 
-const getStats = async () => {
+const getStats = async (sessionId) => {
   const API_URL = window && window.window.location.origin;
   if (!API_URL) {
     return false;
   }
-  return await axios.get(`${API_URL}/stats`);
+  return await axios.get(`${API_URL}/stats?sessionId=${sessionId}`);
 };
 
 const getFileData = async (spath, tpath) => {
