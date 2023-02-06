@@ -11,6 +11,7 @@ import {
 import io from "socket.io-client";
 import { DiffList, NewList } from "./";
 import "../App.css";
+import 'react-accessible-accordion/dist/fancy-example.css';
 
 const initialState = {
   diff: 0,
@@ -72,7 +73,6 @@ function Home() {
     });
 
     socket.on("save_file", (arg) => {
-      console.log("arg", arg);
       if (arg.message === "saved") {
         const cloneListNew = JSON.parse(JSON.stringify(listNew));
         const index = cloneListNew.findIndex(
@@ -306,6 +306,12 @@ function Home() {
     }
   };
 
+  const sessionId = sessionStorage.getItem("sessionId");
+  const getReportUrl = () => {
+    const sessionId = sessionStorage.getItem("sessionId");
+    return `/report/${sessionId}`;
+  };
+
   return (
     <div>
       <div
@@ -356,6 +362,15 @@ function Home() {
                   <a target='_blank' href="/single/xml">New Sort XML</a>
                 </div>
               </div> */}
+              {sessionId && (
+                <div>
+                  <div className="newSort">
+                    <a target="_blank" href={getReportUrl()}>
+                      View Report
+                    </a>
+                  </div>
+                </div>
+              )}
               <div className="select-compare-type">
                 <div>
                   <input

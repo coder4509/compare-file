@@ -1,9 +1,4 @@
-import {
-  readFile,
-  writeFileSync,
-  createReadStream,
-  unlink
-} from "fs";
+import { readFile, writeFileSync, createReadStream, unlink } from "fs";
 import { createInterface } from "readline";
 import { resolve } from "path";
 import { Readable } from "stream";
@@ -44,11 +39,13 @@ const sortXMLTagKeys = (xmlData) => {
     if (index !== undefined && data.length) {
       const attr = {};
       data.forEach((vD) => {
-        const { v, dataVal, index, key } = vD;
+        const { v, dataVal, index, key, isArray } = vD;
         if (index !== undefined) {
           const fData = { ...ObjJson(vD)[key] };
           const newKey = key.replace(`${index}_xml_sort_`, "");
           attr[`${index}_xml_sort_${newKey}`] = fData;
+        } else if(isArray) {
+          attr[v] = JSON.parse(dataVal);
         } else {
           attr[v] = dataVal;
         }
@@ -65,7 +62,7 @@ const sortXMLTagKeys = (xmlData) => {
       objJSON = { ...objJSON, ...data };
     });
   const pattern = /[\d]\_\w+\_/gi;
-  const formmatedXML = JSON.stringify(objJSON).replace(pattern, '');
+  const formmatedXML = JSON.stringify(objJSON).replace(pattern, "");
   return JSON.parse(formmatedXML);
 };
 
@@ -73,8 +70,10 @@ const sortObject = (mainObj) => {
   const ObjectA = [];
   Object.keys(mainObj).forEach((v, index) => {
     const KeyData = mainObj[v];
-    if (KeyData && typeof KeyData === "object") {
+    if (KeyData && !Array.isArray(KeyData) && typeof KeyData === "object") {
       ObjectA.push({ index: index, key: v, data: sortObject(KeyData) });
+    } else if (Array.isArray(KeyData)) {
+      ObjectA.push({ v, dataVal: JSON.stringify(KeyData), isArray: true });
     } else {
       ObjectA.push({ v, dataVal: KeyData });
     }
@@ -115,10 +114,10 @@ const createXmlToJson = (xmlData) => {
 };
 
 const addInetends = (mainJson, keyName, data, intendSize) => {
-  if (typeof data === "object") {
+  if (!Array.isArray(data) && typeof data === "object") {
     Object.keys(data).map((key) => {
       const childData = data[key];
-      if (childData && typeof childData === "object") {
+      if (childData && !Array.isArray(childData) && typeof childData === "object") {
         let intendChildSize = intendSize + (key.length - (key.length - 2));
         data[`${key}(indend_${intendSize})`] = childData;
         delete data[key];
@@ -128,6 +127,10 @@ const addInetends = (mainJson, keyName, data, intendSize) => {
           childData,
           intendChildSize
         );
+      } else if (Array.isArray(childData)) {
+        mainJson[keyName][
+          key
+        ] = data[key];
       } else {
         if (!data[key]) {
           data[`${key}(indend_${intendSize})`] = data[key];
@@ -140,6 +143,8 @@ const addInetends = (mainJson, keyName, data, intendSize) => {
         }
       }
     });
+  } else if (Array.isArray(data)) {
+    mainJson[keyName] = data;
   } else {
     if (!mainJson[keyName]) {
       mainJson[`${keyName}(intend)_${intendSize})`] = data;
@@ -298,16 +303,16 @@ const formatXMLFile = async (filePath, type) => {
 
 export const createHtmlViewFromText = async (data) => {
   const fileStream = Readable.from(data, { encoding: "utf8" });
-  let html = '';
+  let html = "";
   if (fileStream) {
     const rl = createInterface({
       input: fileStream,
       crlfDelay: Infinity,
     });
     for await (const line of rl) {
-      const isStartWithPlus = line.startsWith('+');
-      const isStartWithMinus = line.startsWith('-');
-      let style = '';
+      const isStartWithPlus = line.startsWith("+");
+      const isStartWithMinus = line.startsWith("-");
+      let style = "";
       if (isStartWithPlus) {
         style = `color: green;
         background: lightyellow;`;
@@ -316,10 +321,10 @@ export const createHtmlViewFromText = async (data) => {
         style = `color: #dc0909;
         background: lightyellow;`;
       }
-      html += `<div style='${style}'>${line}</div>`
+      html += `<div style='${style}'>${line}</div>`;
     }
   }
   return html;
-}
+};
 
 export default transFormXMLFile;

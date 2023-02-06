@@ -355,7 +355,9 @@ const generateFullReport = ({
 </div>
 <br/>
 <hr/>
-<table border='1'>
+<div style="text-align:center;">
+<table border='1' style="text-align: center;
+width: 100%;">
 <tr>
 <th>Total Files</th>
 <th>Total Scans</th>
@@ -369,11 +371,38 @@ const generateFullReport = ({
 <td>${newFiles.length}</td>
 </tr>
 </table>
+</div>
 <br/>
 <br/>
-<hr/>
-<div style="text-align: center;"><div><pre>${encode(
-    "<<<<<<=================== Diff files ========================<<<<<<"
+<hr/>`;
+
+  html += `<div style="text-align: center;"><pre style="white-space: pre-wrap;">${encode(
+    "=================== New files ========================"
+  )}</pre></div><br/><hr/>`;
+  if (!newFiles.length) {
+    html += `<div style="text-align: center;"><h4>No new files</h4></div>`;
+  } else {
+    newFiles.forEach((newFile) => {
+      const { s, t } = newFile;
+      html += `<div><div style="inline-size: min-content;
+      overflow-wrap: break-word;
+      box-shadow: 1px 1px 2px 2px #ccc;
+      border-radius: 5px;border: 1px solid #ccc;
+      padding: 10px;width: 95vw">
+         <div>
+         Source Files => <h4 style='color: green'><pre style="white-space: pre-wrap;">${encode(s)}</pre></h4>
+         </div>
+         <div>
+         Target Files => <h4 style='color: #dc0909'><pre style="white-space: pre-wrap;">${encode(t)}</pre></h4>
+         </div>
+     </div></div>`;
+    });
+  }
+
+  html += `<br/><hr/>`;
+
+  html += `<div style="text-align: center;"><div><pre style="white-space: pre-wrap;">${encode(
+    "=================== Diff files ========================"
   )}</pre></div><br/><hr/></div>
 `;
 
@@ -396,48 +425,37 @@ const generateFullReport = ({
     );
     return createHtmlViewFromText(encode(diff));
   });
-  return Promise.all(allDiffHtml)
-    .then((values) => {
-      values.forEach((text) => {
-        html += `<div style="border-top: 1px solid #ccc;
-    margin: 10px;
-    width: 100%;
-    padding: 10px;"><pre>${text}<pre></div>`;
-      });
 
-      html += `<div style="text-align: center;"><pre>${encode(
-        "<<<<<<=================== New files ========================<<<<<<"
-      )}</pre></div><br/>`;
-      if (!newFiles.length) {
-        html += `<div style="text-align: center;"><h4>No new files</h4></div>`
-      } else {
-
-        newFiles.forEach((newFile) => {
-          const { s, t } = newFile;
-          html += `<div>
-               <div>
-               Source:==> <h4><pre>${encode(s)}</pre></h4>
-               </div>
-               <div>
-               <p><b>source file not exists at below Target location</b></p>
-               Target:==> <h4><pre>${encode(t)}</pre></h4>
-               </div>
-           </div>`;
+  if (!allDiffHtml.length) {
+    html += `<div style="text-align: center;"><h4>No diff files</h4></div>`;
+  } else {
+    return Promise.all(allDiffHtml)
+      .then((values) => {
+        values.forEach((text) => {
+          html += `<div style="display: flex; align-self: center;"><div style="border: 1px solid #ccc;
+      margin: 10px;
+      width: 100%;
+      padding: 10px;
+      inline-size: min-content;
+      overflow-wrap: break-word;
+      box-shadow: 1px 1px 2px 2px #ccc;
+    border-radius: 5px;">
+    <pre style="width: 95vw; white-space: pre-wrap;">${text}<pre></div></div>`;
         });
-      }
 
-      // create report html.
-      writeFile(
-        resolve(__dirname, `report_${sessionId}.html`),
-        html,
-        (err, data) => {
-          if (err) throw new Error("Html Error: report file");
-        }
-      );
-    })
-    .catch((err) => {
-      console.log("html===> error", err);
-    });
+        // create report html.
+        writeFile(
+          resolve(__dirname, `report_${sessionId}.html`),
+          html,
+          (err, data) => {
+            if (err) throw new Error("Html Error: report file");
+          }
+        );
+      })
+      .catch((err) => {
+        console.log("html===> error", err);
+      });
+  }
 };
 
 export {

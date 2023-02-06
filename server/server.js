@@ -94,6 +94,24 @@ app.get("/local/file", (req, res) => {
   return res.send(data);
 });
 
+app.get("/report/:sessionId", (req, res) => {
+  const { sessionId } = req.params;
+  console.log(sessionId);
+  const reportPath = `report_${sessionId}.html`;
+  if (existsSync(resolve(__dirname, reportPath))) {
+    readFile(resolve(__dirname, reportPath), "utf8", (err, data) => {
+      if (err) {
+        console.error("Something went wrong:", err);
+        throw new Error("Something went wrong....!");
+      }
+
+      return res.status(200).send(data);
+    });
+  } else {
+    res.status(404).send("No file");
+  }
+});
+
 app.get("/single/xml", (req, res) => {
   const app = ReactDOMServer.renderToString(<App singleView={true} />);
   const indexFile = resolve("./build/index.html");
@@ -209,13 +227,11 @@ app.post("/xml", async (req, res, next) => {
         socketIo
       );
     }
-    return res
-      .status(200)
-      .send({
-        message: "Started ....... !",
-        totalFiles: totalFiles,
-        sessionId,
-      });
+    return res.status(200).send({
+      message: "Started ....... !",
+      totalFiles: totalFiles,
+      sessionId,
+    });
   } catch (error) {
     throw new Error(error);
   }
@@ -233,6 +249,8 @@ app.post("/fileData", async (req, res) => {
   const [s1, s2] = responseData;
   const sData = s1.s || s2.s;
   const tData = s2.t || s1.t;
+
+  // console.log(JSON.stringify(responseData));
 
   // ===========================
   const targetParser = new XMLParser({
