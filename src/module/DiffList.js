@@ -1,7 +1,7 @@
 import React from "react";
 import { ListCard } from "../components";
 
-export default function DiffList({listDiff = [], handleDiff}) {
+export default function DiffList({ listDiff = [], handleDiff }) {
   return (
     <div>
       <div style={{ overflowY: "scroll" }}>

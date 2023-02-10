@@ -33,7 +33,8 @@ const compareDiff = async (
   diffFiles = [],
   newFiles = [],
   totalFiles,
-  sessionId
+  sessionId,
+  clientId
 ) => {
   totalScan.push(spath);
   updateSessionData({ sessionId, newFiles, diffFiles, totalFiles, totalScan });
@@ -109,10 +110,11 @@ const checkFileDiff = (
   diffFiles = [],
   totalFiles,
   sessionId,
-  socketIo
+  socketIo,
+  clientId
 ) => {
   // check if file or folder exists
-  socketIo.emit("compare_done", "progress");
+  socketIo.emit("compare_done", { clientId, status: "progress" });
   if (!isFirst) {
     totalScan.push(sPath);
     updateSessionData({
@@ -156,9 +158,10 @@ const checkFileDiff = (
                   diffFiles,
                   totalFiles,
                   sessionId,
-                  socketIo
+                  socketIo,
+                  clientId
                 );
-                socketIo.emit("compare_done", "done");
+                socketIo.emit("compare_done", { clientId, status: "done" });
               }, 2000);
             }
           });
@@ -191,12 +194,13 @@ const checkFileDiff = (
                 diffFiles,
                 totalFiles,
                 sessionId,
-                socketIo
+                socketIo,
+                clientId
               );
-              socketIo.emit("compare_done", "done");
+              socketIo.emit("compare_done", { clientId, status: "done" });
             }, 2000);
           } else {
-            socketIo.emit("compare_done", "progress");
+            socketIo.emit("compare_done", { clientId, status: "progress" });
             return setTimeout(() => {
               compareDiff(
                 subSPath,
@@ -205,16 +209,17 @@ const checkFileDiff = (
                 diffFiles,
                 newFiles,
                 totalFiles,
-                sessionId
+                sessionId,
+                clientId
               );
-              socketIo.emit("compare_done", "done");
+              socketIo.emit("compare_done", { clientId, status: "done" });
             }, 2000);
           }
         });
       });
     });
   } else {
-    socketIo.emit("compare_done", "done");
+    socketIo.emit("compare_done", { clientId, status: "done" });
     readdir(sPath, (err, files) => {
       if (err) {
         throw new Error(err);
@@ -250,7 +255,7 @@ const checkFileDiff = (
           }
           const isDir = stats.isDirectory();
           if (isDir) {
-            socketIo.emit("compare_done", "progress");
+            socketIo.emit("compare_done", { clientId, status: "progress" });
             return setTimeout(() => {
               checkFileDiff(
                 resolve(subSPath),
@@ -259,12 +264,13 @@ const checkFileDiff = (
                 totalScan,
                 newFiles,
                 diffFiles,
-                socketIo
+                socketIo,
+                clientId
               );
-              socketIo.emit("compare_done", "done");
+              socketIo.emit("compare_done", { clientId, status: "done" });
             }, 2000);
           } else {
-            socketIo.emit("compare_done", "done");
+            socketIo.emit("compare_done", { clientId, status: "done" });
             newFiles.push({
               s: subSPath,
               t: subTPath,
@@ -307,13 +313,14 @@ const startCompare = (
   diffFiles = [],
   totalFiles,
   sessionId,
-  socketIo
+  socketIo,
+  clientId
 ) => {
   const parentSPath = resolve(sourcePath);
   const parentTPath = resolve(targetPath);
   diffL = 0;
   // first call
-  socketIo.emit("compare_done", "progress");
+  socketIo.emit("compare_done", { clientId, status: "progress" });
   setTimeout(() => {
     checkFileDiff(
       parentSPath,
@@ -324,9 +331,10 @@ const startCompare = (
       diffFiles,
       totalFiles,
       sessionId,
-      socketIo
+      socketIo,
+      clientId
     );
-    socketIo.emit("compare_done", "done");
+    socketIo.emit("compare_done", { clientId, status: "done" });
   }, 5000);
 };
 
@@ -390,10 +398,14 @@ width: 100%;">
       border-radius: 5px;border: 1px solid #ccc;
       padding: 10px;width: 95vw">
          <div>
-         Source Files => <h4 style='color: green'><pre style="white-space: pre-wrap;">${encode(s)}</pre></h4>
+         Source Files => <h4 style='color: green'><pre style="white-space: pre-wrap;">${encode(
+           s
+         )}</pre></h4>
          </div>
          <div>
-         Target Files => <h4 style='color: #dc0909'><pre style="white-space: pre-wrap;">${encode(t)}</pre></h4>
+         Target Files => <h4 style='color: #dc0909'><pre style="white-space: pre-wrap;">${encode(
+           t
+         )}</pre></h4>
          </div>
      </div></div>`;
     });

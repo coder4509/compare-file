@@ -131,7 +131,7 @@ app.get("/single/xml", (req, res) => {
 app.post("/xml", async (req, res, next) => {
   try {
     const { sourcePath, targetPath } = req.body;
-    const { isFile } = req.query;
+    const { isFile, clientId } = req.query;
     let newFiles = [];
     let diffFiles = [];
     let totalScan = [];
@@ -200,7 +200,8 @@ app.post("/xml", async (req, res, next) => {
                       diffFiles,
                       totalFiles,
                       sessionId,
-                      socketIo
+                      socketIo,
+                      clientId
                     );
                     console.log("totalFiles", totalFiles);
                     re("done");
@@ -224,7 +225,8 @@ app.post("/xml", async (req, res, next) => {
         diffFiles,
         totalFiles,
         sessionId,
-        socketIo
+        socketIo,
+        clientId
       );
     }
     return res.status(200).send({
@@ -419,7 +421,23 @@ app.get("/health", (req, res) => {
 httpServer.listen(port, () => {
   console.log(`listening on *:${port}`);
 });
-
+const clients = [];
 socketIo.on("connection", (socket) => {
-  console.log("new client connected");
+  socket.on("storeClientInfo", function(data) {
+    const clientInfo = new Object();
+    clientInfo.uid = (data && data.uid) || "";
+    clientInfo.clientId = socket.id;
+    clients.push(clientInfo);
+    socket.emit("getClient", { clientInfo });
+    console.log("new client connected", clients);
+  });
+
+  socket.on("disconnect", function(data) {
+    const indexClient = clients.findIndex(
+      (dataItem) => dataItem.clientId === socket.id
+    );
+    if (indexClient !== -1) {
+      clients.splice(indexClient, 1);
+    }
+  });
 });

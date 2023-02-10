@@ -28,9 +28,9 @@ export const addUserSession = (data) => {
 export const updateSessionData = (data) => {
   const { sessionId, newFiles, diffFiles, totalFiles, totalScan } = data || {};
   // generate report
-    if (totalScan.length === totalFiles) {
-      generateFullReport(data);
-    }
+  if (totalScan.length === totalFiles) {
+    generateFullReport(data);
+  }
   // end
   localDb = localDb.map((sessionD) => {
     if (sessionD[sessionId]) {

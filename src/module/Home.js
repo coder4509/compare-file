@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ReloadIcon } from "@radix-ui/react-icons";
+import uniqid from "uniqid";
 import { MergelyEditor, TabView, FileUpload } from "../components";
 import {
   startFileCompare,
@@ -11,7 +12,7 @@ import {
 import io from "socket.io-client";
 import { DiffList, NewList } from "./";
 import "../App.css";
-import 'react-accessible-accordion/dist/fancy-example.css';
+import "react-accessible-accordion/dist/fancy-example.css";
 
 const initialState = {
   diff: 0,
@@ -64,11 +65,21 @@ function Home() {
 
   useEffect(() => {
     console.log("isConnected", isConnected);
-    socket.on("connect", () => {
+    socket.on("connect", (data) => {
       setIsConnected(true);
+      const uId = uniqid();
+      sessionStorage.setItem("uId", uId);
+      socket.emit("storeClientInfo", { uid: uId });
+      socket.on("getClient", (arg) => {
+        const { clientInfo: { clientId, uid } = {} } = arg || {};
+        sessionStorage.setItem("uId", uid);
+        sessionStorage.setItem("clientId", clientId);
+      });
     });
 
     socket.on("disconnect", () => {
+      sessionStorage.removeItem("uId");
+      sessionStorage.removeItem("clientId");
       setIsConnected(false);
     });
 
@@ -86,7 +97,9 @@ function Home() {
     });
 
     socket.on("compare_done", (arg) => {
-      if (arg === "done") {
+      const { status, clientId } = arg;
+      const clientID = sessionStorage.getItem("clientId");
+      if (status === "done" && clientId === clientID) {
         setTimeout(() => {
           fetchStats();
         }, 1000);
@@ -167,6 +180,7 @@ function Home() {
     }));
 
     setStartAgain(true);
+    const clientId = sessionStorage.getItem("clientId");
     if (isFile) {
       if (!fileNameS || !fileNameT) {
         setStartAgain(false);
@@ -177,7 +191,7 @@ function Home() {
       formFileData.append("targetFile", fileT);
       formFileData.append("sourcefileName", fileNameS);
       formFileData.append("targetfileName", fileNameT);
-      startFileCompare({ isFile, formFileData })
+      startFileCompare({ isFile, formFileData, clientId })
         .then((res) => {
           const { totalFiles = 0, sessionId } = res.data;
           setStatsData((preState) => ({
@@ -198,6 +212,7 @@ function Home() {
       startFileCompare({
         spath: formData.sourcePath,
         tpath: formData.targetPath,
+        clientId,
       })
         .then((res) => {
           const { totalFiles = 0, sessionId } = res.data;
@@ -357,11 +372,6 @@ function Home() {
               <div style={{ textAlign: "center" }}>
                 <h3>Compare & Sort XML</h3>
               </div>
-              {/* <div>
-                <div className="newSort">
-                  <a target='_blank' href="/single/xml">New Sort XML</a>
-                </div>
-              </div> */}
               {sessionId && (
                 <div>
                   <div className="newSort">
