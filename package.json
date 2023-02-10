@@ -5,8 +5,7 @@
   "keywords": [
     "mergely",
     "merge",
-    "diff",
-    "myers"
+    "diff"
   ],
   "dependencies": {
     "@codemirror/lang-javascript": "^6.1.2",
