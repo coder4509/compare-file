@@ -6,6 +6,7 @@ const startFileCompare = async ({
   isFile,
   formFileData,
   clientId,
+  sessionId
 }) => {
   const API_URL = window && window.window.location.origin;
   if (!API_URL) {
@@ -19,7 +20,7 @@ const startFileCompare = async ({
     postData = formFileData;
   }
   return await axios.post(
-    `${API_URL}/xml?isFile=${isFile}&clientId=${clientId}`,
+    `${API_URL}/xml?isFile=${isFile}&clientId=${clientId}&oldSessionId=${sessionId}`,
     postData
   );
 };

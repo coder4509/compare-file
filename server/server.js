@@ -5,17 +5,13 @@ import fileUpload from "express-fileupload";
 import {
   readFile,
   existsSync,
-  readdir,
-  lstat,
   writeFileSync,
-  readdirSync,
-  statSync,
   unlink,
   readFileSync,
   mkdirSync,
   lstatSync,
   createReadStream,
-  rmdirSync,
+  rmSync
 } from "fs";
 import { resolve } from "path";
 import React from "react";
@@ -25,6 +21,7 @@ import { createServer } from "http";
 import * as io from "socket.io";
 import uniqid from "uniqid";
 import unzipper from "unzipper";
+import moment from "moment";
 
 // Local imports
 import App from "../src/App";
@@ -36,7 +33,6 @@ import {
   getSessionIdData,
   clearSessionId,
 } from "./utils/localDB";
-
 const app = express();
 const port = process.env.PORT || 3000;
 const httpServer = createServer(app);
@@ -96,8 +92,12 @@ app.get("/local/file", (req, res) => {
 
 app.get("/report/:sessionId", (req, res) => {
   const { sessionId } = req.params;
-  console.log(sessionId);
-  const reportPath = `report_${sessionId}.html`;
+  const reportPath = `${resolve(
+    __dirname,
+    "reports/",
+    moment().format("DD-MM-YYYY")
+  )}/report_${sessionId}.html`;
+  console.log(reportPath);
   if (existsSync(resolve(__dirname, reportPath))) {
     readFile(resolve(__dirname, reportPath), "utf8", (err, data) => {
       if (err) {
@@ -131,15 +131,17 @@ app.get("/single/xml", (req, res) => {
 app.post("/xml", async (req, res, next) => {
   try {
     const { sourcePath, targetPath } = req.body;
-    const { isFile, clientId } = req.query;
+    const { isFile, clientId, oldSessionId } = req.query;
     let newFiles = [];
     let diffFiles = [];
     let totalScan = [];
     let totalFiles = 0;
-    const filesPath = __dirname + "/files";
     const sessionId = uniqid();
-    if (existsSync(filesPath)) {
-      rmdirSync(filesPath, { recursive: true });
+    if (oldSessionId) {
+      const filesPath = __dirname + `/files_session_${oldSessionId}`;
+      if (existsSync(filesPath)) {
+        rmSync(filesPath, { recursive: true });
+      }
     }
 
     if (isFile === "true") {
@@ -147,7 +149,7 @@ app.post("/xml", async (req, res, next) => {
       const fileT = req.files.targetFile;
       const fileNameS = fileS.name;
       const fileNameT = fileT.name;
-      const filesPath = __dirname + "/files";
+      const filesPath = __dirname + `/files_session_${sessionId}`;
 
       if (!existsSync(filesPath)) {
         mkdirSync(filesPath, { recursive: true });

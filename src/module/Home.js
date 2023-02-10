@@ -12,7 +12,6 @@ import {
 import io from "socket.io-client";
 import { DiffList, NewList } from "./";
 import "../App.css";
-import "react-accessible-accordion/dist/fancy-example.css";
 
 const initialState = {
   diff: 0,
@@ -181,6 +180,7 @@ function Home() {
 
     setStartAgain(true);
     const clientId = sessionStorage.getItem("clientId");
+    const sessionId = sessionStorage.getItem("sessionId");
     if (isFile) {
       if (!fileNameS || !fileNameT) {
         setStartAgain(false);
@@ -191,7 +191,7 @@ function Home() {
       formFileData.append("targetFile", fileT);
       formFileData.append("sourcefileName", fileNameS);
       formFileData.append("targetfileName", fileNameT);
-      startFileCompare({ isFile, formFileData, clientId })
+      startFileCompare({ isFile, formFileData, clientId, sessionId })
         .then((res) => {
           const { totalFiles = 0, sessionId } = res.data;
           setStatsData((preState) => ({
@@ -213,6 +213,7 @@ function Home() {
         spath: formData.sourcePath,
         tpath: formData.targetPath,
         clientId,
+        sessionId
       })
         .then((res) => {
           const { totalFiles = 0, sessionId } = res.data;

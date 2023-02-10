@@ -6,10 +6,8 @@ import {
   lstat,
   readdirSync,
   statSync,
-  writeFileSync,
-  readFileSync,
-  appendFileSync,
   writeFile,
+  mkdirSync,
 } from "fs";
 import { resolve, join, parse } from "path";
 import * as Diff from "diff";
@@ -17,6 +15,7 @@ import { encode } from "html-entities";
 // Local imports
 import transFormXMLFile, { createHtmlViewFromText } from "./formatXML";
 import localDb, { updateSessionData } from "./localDB";
+import moment from "moment";
 
 const optionsP = {
   allowBooleanAttributes: true,
@@ -454,10 +453,21 @@ width: 100%;">
     border-radius: 5px;">
     <pre style="width: 95vw; white-space: pre-wrap;">${text}<pre></div></div>`;
         });
-
+        const mainFolder = resolve(
+          __dirname,
+          "reports"
+        );
+        !existsSync(mainFolder) && mkdirSync(mainFolder);
+        const reportFloder = resolve(
+          __dirname,
+          mainFolder,
+          moment().format("DD-MM-YYYY")
+        );
+        !existsSync(reportFloder) && mkdirSync(reportFloder);
+        console.log(reportFloder);
         // create report html.
         writeFile(
-          resolve(__dirname, `report_${sessionId}.html`),
+          resolve(__dirname, `${reportFloder}/report_${sessionId}.html`),
           html,
           (err, data) => {
             if (err) throw new Error("Html Error: report file");
