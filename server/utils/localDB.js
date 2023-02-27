@@ -29,6 +29,7 @@ export const updateSessionData = (data) => {
   const { sessionId, newFiles, diffFiles, totalFiles, totalScan } = data || {};
   // generate report
   if (totalScan.length === totalFiles) {
+    // console.log(totalScan.length, totalFiles, newFiles.length, diffFiles.length);
     generateFullReport(data);
   }
   // end

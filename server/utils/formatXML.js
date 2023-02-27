@@ -1,4 +1,10 @@
-import { readFile, writeFileSync, createReadStream, unlink } from "fs";
+import {
+  readFile,
+  writeFileSync,
+  createReadStream,
+  existsSync,
+  mkdirSync,
+} from "fs";
 import { createInterface } from "readline";
 import { resolve } from "path";
 import { Readable } from "stream";
@@ -6,6 +12,7 @@ import { XMLParser, XMLBuilder, XMLValidator } from "fast-xml-parser";
 import uniqid from "uniqid";
 import json from "json-keys-sort";
 import sortJSON from "sort-json";
+import { rimraf } from "rimraf";
 
 const options = { ignoreCase: true, reverse: false };
 
@@ -44,7 +51,7 @@ const sortXMLTagKeys = (xmlData) => {
           const fData = { ...ObjJson(vD)[key] };
           const newKey = key.replace(`${index}_xml_sort_`, "");
           attr[`${index}_xml_sort_${newKey}`] = fData;
-        } else if(isArray) {
+        } else if (isArray) {
           attr[v] = JSON.parse(dataVal);
         } else {
           attr[v] = dataVal;
@@ -117,7 +124,11 @@ const addInetends = (mainJson, keyName, data, intendSize) => {
   if (!Array.isArray(data) && typeof data === "object") {
     Object.keys(data).map((key) => {
       const childData = data[key];
-      if (childData && !Array.isArray(childData) && typeof childData === "object") {
+      if (
+        childData &&
+        !Array.isArray(childData) &&
+        typeof childData === "object"
+      ) {
         let intendChildSize = intendSize + (key.length - (key.length - 2));
         data[`${key}(indend_${intendSize})`] = childData;
         delete data[key];
@@ -128,9 +139,7 @@ const addInetends = (mainJson, keyName, data, intendSize) => {
           intendChildSize
         );
       } else if (Array.isArray(childData)) {
-        mainJson[keyName][
-          key
-        ] = data[key];
+        mainJson[keyName][key] = data[key];
       } else {
         if (!data[key]) {
           data[`${key}(indend_${intendSize})`] = data[key];
@@ -164,7 +173,11 @@ const tranformJsonData = (xmlJsonObject = {}) => {
   return cloneXmlJsonObject;
 };
 
-const transFormXMLFile = (filepath, type) => {
+const transFormXMLFile = (filepath, type, sessionId = null) => {
+  const tempFolder = (sessionId && `temp_${sessionId}`) || null;
+  if (sessionId && !existsSync(resolve(__dirname, tempFolder))) {
+    mkdirSync(resolve(__dirname, tempFolder));
+  }
   return new Promise((ress, rejj) => {
     readFile(resolve(__dirname, filepath), "utf-8", (err, data) => {
       if (err) {
@@ -178,7 +191,10 @@ const transFormXMLFile = (filepath, type) => {
         ...optionsP,
       });
       const xmlDataStr = builder.build(newData);
-      const newTempFile = `${uniqid()}.xml`;
+      let newTempFile = `${uniqid()}.xml`;
+      if (tempFolder) {
+        newTempFile = `${tempFolder}/${uniqid()}.xml`;
+      }
       writeFileSync(resolve(__dirname, newTempFile), xmlDataStr, "utf8");
       ress(formatXMLFile(newTempFile, type));
     });
@@ -292,10 +308,8 @@ const formatXMLFile = async (filePath, type) => {
   }
   const firstResult = await putNewLine(finalXml, true);
   if (firstResult) {
-    unlink(resolve(__dirname, filePath), (err, data) => {
-      if (err) {
-        console.log("Error: unlink", err);
-      }
+    rimraf(resolve(__dirname, filePath)).catch((err) => {
+      console.log("Error: unlink", err);
     });
   }
   return { [type]: firstResult };

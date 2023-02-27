@@ -8,6 +8,8 @@ import {
   statSync,
   writeFile,
   mkdirSync,
+  createWriteStream,
+  writeFileSync,
 } from "fs";
 import { resolve, join, parse } from "path";
 import * as Diff from "diff";
@@ -16,6 +18,11 @@ import { encode } from "html-entities";
 import transFormXMLFile, { createHtmlViewFromText } from "./formatXML";
 import localDb, { updateSessionData } from "./localDB";
 import moment from "moment";
+import axios from "axios";
+import unzipper from "unzipper";
+import decompress from "decompress";
+import { rimraf } from "rimraf";
+import os from "os";
 
 const optionsP = {
   allowBooleanAttributes: true,
@@ -40,8 +47,8 @@ const compareDiff = async (
   const { ext } = parse(spath);
   // Promise for source Data
   if (ext === ".xml") {
-    const sourceData = transFormXMLFile(spath, "s");
-    const targetData = transFormXMLFile(tpath, "t");
+    const sourceData = transFormXMLFile(spath, "s", sessionId);
+    const targetData = transFormXMLFile(tpath, "t", sessionId);
     Promise.all([sourceData, targetData])
       .then((responseData) => {
         const [s1, s2] = responseData;
@@ -113,7 +120,9 @@ const checkFileDiff = (
   clientId
 ) => {
   // check if file or folder exists
-  socketIo.emit("compare_done", { clientId, status: "progress" });
+  if (clientId) {
+    socketIo.emit("compare_done", { clientId, status: "progress" });
+  }
   if (!isFirst) {
     totalScan.push(sPath);
     updateSessionData({
@@ -160,7 +169,9 @@ const checkFileDiff = (
                   socketIo,
                   clientId
                 );
-                socketIo.emit("compare_done", { clientId, status: "done" });
+                if (clientId) {
+                  socketIo.emit("compare_done", { clientId, status: "done" });
+                }
               }, 2000);
             }
           });
@@ -196,10 +207,14 @@ const checkFileDiff = (
                 socketIo,
                 clientId
               );
-              socketIo.emit("compare_done", { clientId, status: "done" });
+              if (clientId) {
+                socketIo.emit("compare_done", { clientId, status: "done" });
+              }
             }, 2000);
           } else {
-            socketIo.emit("compare_done", { clientId, status: "progress" });
+            if (clientId) {
+              socketIo.emit("compare_done", { clientId, status: "progress" });
+            }
             return setTimeout(() => {
               compareDiff(
                 subSPath,
@@ -211,14 +226,18 @@ const checkFileDiff = (
                 sessionId,
                 clientId
               );
-              socketIo.emit("compare_done", { clientId, status: "done" });
+              if (clientId) {
+                socketIo.emit("compare_done", { clientId, status: "done" });
+              }
             }, 2000);
           }
         });
       });
     });
   } else {
-    socketIo.emit("compare_done", { clientId, status: "done" });
+    if (clientId) {
+      socketIo.emit("compare_done", { clientId, status: "done" });
+    }
     readdir(sPath, (err, files) => {
       if (err) {
         throw new Error(err);
@@ -254,7 +273,9 @@ const checkFileDiff = (
           }
           const isDir = stats.isDirectory();
           if (isDir) {
-            socketIo.emit("compare_done", { clientId, status: "progress" });
+            if (clientId) {
+              socketIo.emit("compare_done", { clientId, status: "progress" });
+            }
             return setTimeout(() => {
               checkFileDiff(
                 resolve(subSPath),
@@ -266,10 +287,14 @@ const checkFileDiff = (
                 socketIo,
                 clientId
               );
-              socketIo.emit("compare_done", { clientId, status: "done" });
+              if (clientId) {
+                socketIo.emit("compare_done", { clientId, status: "done" });
+              }
             }, 2000);
           } else {
-            socketIo.emit("compare_done", { clientId, status: "done" });
+            if (clientId) {
+              socketIo.emit("compare_done", { clientId, status: "done" });
+            }
             newFiles.push({
               s: subSPath,
               t: subTPath,
@@ -319,7 +344,9 @@ const startCompare = (
   const parentTPath = resolve(targetPath);
   diffL = 0;
   // first call
-  socketIo.emit("compare_done", { clientId, status: "progress" });
+  if (clientId) {
+    socketIo.emit("compare_done", { clientId, status: "progress" });
+  }
   setTimeout(() => {
     checkFileDiff(
       parentSPath,
@@ -333,7 +360,9 @@ const startCompare = (
       socketIo,
       clientId
     );
-    socketIo.emit("compare_done", { clientId, status: "done" });
+    if (clientId) {
+      socketIo.emit("compare_done", { clientId, status: "done" });
+    }
   }, 5000);
 };
 
@@ -357,8 +386,17 @@ const generateFullReport = ({
   totalFiles,
   totalScan,
 }) => {
-  let html = `<div style="text-align: center;">
-  <h1>XML files difference report.....!</h1>
+  const htmlText = process.env.IS_JENKINS
+    ? `<div><a href='http://${os.hostname()}:${
+        process.env.PORT
+      }/report/${sessionId}'>View Report</a></div>`
+    : "";
+  let html = `<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+  </head><div style=${process.env.IS_JENKINS ? "" : "text-align: center;"}>
+  <h5>XML files difference report.....!</h5>
+  ${htmlText}
 </div>
 <br/>
 <hr/>
@@ -419,8 +457,8 @@ width: 100%;">
 
   const allDiffHtml = diffFiles.map(async (diffData) => {
     const { s, t } = diffData;
-    const sourceData = transFormXMLFile(s, "s");
-    const targetData = transFormXMLFile(t, "t");
+    const sourceData = transFormXMLFile(s, "s", sessionId);
+    const targetData = transFormXMLFile(t, "t", sessionId);
     const responseData = await Promise.all([sourceData, targetData]);
     // =====================
     const [s1, s2] = responseData;
@@ -453,10 +491,7 @@ width: 100%;">
     border-radius: 5px;">
     <pre style="width: 95vw; white-space: pre-wrap;">${text}<pre></div></div>`;
         });
-        const mainFolder = resolve(
-          __dirname,
-          "reports"
-        );
+        const mainFolder = resolve(__dirname, "reports");
         !existsSync(mainFolder) && mkdirSync(mainFolder);
         const reportFloder = resolve(
           __dirname,
@@ -480,6 +515,176 @@ width: 100%;">
   }
 };
 
+const getLatestContentVersion = async (url) => {
+  const versionData = await axios.get(url);
+  let version = "";
+  if (versionData && versionData.data && versionData.data["dist-tags"]) {
+    const { latest } = versionData.data["dist-tags"];
+    console.log("Dev version ====>", latest);
+    version = latest;
+  } else if (versionData && versionData.data) {
+    const stringData = versionData.data || "";
+    const startIndex = stringData.search("<release>");
+    const endIndex = stringData.search("</release>");
+    console.log(startIndex, endIndex);
+    console.log(
+      "version picked ======>",
+      stringData.substring(startIndex + 9, endIndex)
+    );
+    version = stringData.substring(startIndex + 9, endIndex);
+  }
+  return version;
+};
+
+const getJenkinsFilePaths = async ({
+  sourceURL,
+  targetURL,
+  sfileUrl,
+  tfileUrl,
+  syncPath,
+  syncFor,
+  sessionId,
+}) => {
+  // get version
+  const sourceVer = await getLatestContentVersion(sourceURL);
+  const targetVer = await getLatestContentVersion(targetURL);
+  // update the file URL with version
+  const sURL = sfileUrl.replaceAll("$version", sourceVer);
+  const tURL = tfileUrl.replaceAll("$version", targetVer);
+  console.log("sURL====>", sURL);
+  console.log("tURL====>", tURL);
+  const completeSourceFilePath = sURL;
+  const completeTargetFilePath = tURL;
+  let html = `<head><meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8" /></head>`;
+  if (syncFor === "SS") {
+    html += `<div><h4>Report Of <strong>Self Service Prod Content Sync</strong></h4></div><hr/>`;
+    html += `<div>Date: ${moment().format("DD-MM-YYYY")}</div>`;
+    html += `<div><h5>Latest package version:</h5></div>`;
+    html += `<div><ul>
+    <li>Production Version:- ${completeSourceFilePath}</li>
+    <li>Branch Version:- ${completeTargetFilePath}</li>
+    </ul></div><hr/>`;
+  }
+  if (syncFor === "RT") {
+    html += `<div><h4>Report Of <strong>Retail/Telesales</strong> Prod Content Sync</h4></div><hr/>`;
+    html += `<div>Date: ${moment().format("DD-MM-YYYY")}</div>`;
+    html += `<div><h5>Latest package version:</h5></div>`;
+    html += `<div><ul>
+    <li>Production Version:- ${completeSourceFilePath}</li>
+    <li>Branch Version:- ${completeTargetFilePath}</li>
+    </ul></div><hr/>`;
+  }
+  writeFileSync(resolve(__dirname, `${sessionId}_.html`), html, "utf-8");
+  const sFile = await axios({
+    method: "get",
+    url: completeSourceFilePath,
+    responseType: "stream",
+  });
+  const tFile = await axios({
+    method: "get",
+    url: completeTargetFilePath,
+    responseType: "stream",
+  });
+  const { base: sourceBase, name: SBaseName } = parse(completeSourceFilePath);
+  const { base: targetBase, name: TBaseName } = parse(completeTargetFilePath);
+
+  const sourceP = resolve(__dirname, syncPath, sourceBase);
+  const targetP = resolve(__dirname, syncPath, targetBase);
+
+  const extractSP = resolve(__dirname, syncPath, SBaseName);
+  const extractTP = resolve(__dirname, syncPath, TBaseName);
+
+  const sourcePromise = new Promise((resS, rejS) => {
+    sFile.data
+      .pipe(createWriteStream(sourceP))
+      .on("error", () => {
+        rimraf(sourceP).catch((err) => {
+          console.log("Error unlink", sourceBase, "======>", err);
+        });
+        rejS(false);
+        throw new Error(`Error Extract:: ${completeSourceFilePath}`);
+      })
+      .on("close", () => {
+        console.log("Jenkins:: Source Done.....", completeSourceFilePath);
+        unzipper.Open.file(sourceP)
+          .then((d) => {
+            console.log("Source done!", SBaseName);
+            d.extract({ path: extractSP });
+            rimraf(sourceP).catch((err) => {
+              console.log("Error unlink", sourceBase, "======>", err);
+            });
+            console.log("Error unlink", sourceBase);
+            resS(true);
+          })
+          .catch((err) => {
+            rimraf(sourceP).catch((err) => {
+              console.log("Error unlink", sourceBase, "======>", err);
+            });
+            console.log("Error unlink", sourceBase);
+            rejS(false);
+            throw new Error(
+              `Error Extract:: ${completeSourceFilePath} =====> error ${err}`
+            );
+          });
+      });
+  });
+  const targetPromise = new Promise((tRess, tRej) => {
+    tFile.data
+      .pipe(createWriteStream(targetP))
+      .on("error", () => {
+        rimraf(targetP).catch((err) => {
+          console.log("Error unlink", targetBase, "======>", err);
+        });
+        tRej(false);
+        throw new Error(`Error Extract:: ${completeTargetFilePath}`);
+      })
+      .on("close", () => {
+        console.log("Jenkins:: Target Done.....", completeTargetFilePath);
+        decompress(targetP, extractTP)
+          .then((files) => {
+            console.log("Target done!", TBaseName);
+            rimraf(targetP).catch((err) => {
+              console.log("Error unlink", targetBase, "======>", err);
+            });
+            console.log("Error unlink", targetBase);
+            tRess(true);
+          })
+          .catch((err) => {
+            rimraf(targetP).catch((err) => {
+              console.log("Error unlink", targetBase, "======>", err);
+            });
+            console.log("Error unlink", targetBase);
+            tRej(false);
+            throw new Error(
+              `Error Extract:: ${completeTargetFilePath} ======> error ${err}`
+            );
+          });
+      });
+  });
+  const [s, t] = await Promise.all([sourcePromise, targetPromise]);
+  console.log("s::::", s, "t::::", t);
+  if (s && t) {
+    return {
+      s: {
+        s,
+        spath: extractSP,
+      },
+      t: {
+        t,
+        tpath: resolve(
+          __dirname,
+          syncPath,
+          TBaseName,
+          "package",
+          TBaseName.replaceAll(`-${targetVer}`, "")
+        ),
+      },
+    };
+  }
+  return null;
+};
+
 export {
   compareDiff,
   checkFileDiff,
@@ -487,4 +692,6 @@ export {
   startCompare,
   getFileDiffContent,
   generateFullReport,
+  getLatestContentVersion,
+  getJenkinsFilePaths,
 };

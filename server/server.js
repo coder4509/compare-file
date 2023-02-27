@@ -6,12 +6,12 @@ import {
   readFile,
   existsSync,
   writeFileSync,
-  unlink,
   readFileSync,
   mkdirSync,
   lstatSync,
   createReadStream,
-  rmSync
+  rmSync,
+  readdirSync,
 } from "fs";
 import { resolve } from "path";
 import React from "react";
@@ -22,12 +22,19 @@ import * as io from "socket.io";
 import uniqid from "uniqid";
 import unzipper from "unzipper";
 import moment from "moment";
+import { rimraf } from "rimraf";
+import cron from "node-cron";
+import { exec } from "child_process";
 
 // Local imports
 import App from "../src/App";
 import transFormXMLFile from "./utils/formatXML";
 import getDiffOverView from "./utils/overviewFile";
-import { checkTotalFiles, startCompare } from "./utils/utils";
+import {
+  checkTotalFiles,
+  startCompare,
+  getJenkinsFilePaths,
+} from "./utils/utils";
 import {
   addUserSession,
   getSessionIdData,
@@ -128,6 +135,137 @@ app.get("/single/xml", (req, res) => {
   });
 });
 
+// for jenkins
+app.post("/jenkins_xml", async (req, res) => {
+  try {
+    const { isJenKins, isSS, isRT } = req.query;
+    let newFiles = [];
+    let diffFiles = [];
+    let totalScan = [];
+    let totalFiles = 0;
+    let jenkinsSPath = "";
+    let jenkinsTPath = "";
+    const sessionId = uniqid();
+    const jenKinsProSync = resolve(
+      __dirname,
+      `jenkins_${moment().format("DD-MM-YYYY")}`
+    );
+    if (!existsSync(jenKinsProSync)) {
+      mkdirSync(jenKinsProSync);
+    }
+    if (
+      (isJenKins === "true" || isJenKins === true) &&
+      (isSS === "true" || isSS === true)
+    ) {
+      const paths = await getJenkinsFilePaths({
+        sourceURL: process.env.LATEST_PROD_SS_CONTENT_VERSION,
+        targetURL: process.env.LATEST_DEV_SS_CONTENT_VESRION,
+        sfileUrl: process.env.PROD_SS_FILE_NAME,
+        tfileUrl: process.env.DEV_SS_FILE_NAME,
+        syncPath: `jenkins_${moment().format("DD-MM-YYYY")}`,
+        syncFor: "SS",
+        sessionId,
+      });
+      jenkinsSPath = (paths && paths.s.spath) || "";
+      jenkinsTPath = (paths && paths.t.tpath) || "";
+    } else if (
+      (isJenKins === "true" || isJenKins === true) &&
+      (isRT === "true" || isRT === true)
+    ) {
+      const paths = await getJenkinsFilePaths({
+        sourceURL: process.env.LATEST_PROD_RT_CONTENT_VERSION,
+        targetURL: process.env.LATEST_DEV_RT_CONTENT_VESRION,
+        sfileUrl: process.env.PROD_RT_FILE_NAME,
+        tfileUrl: process.env.DEV_RT_FILE_NAME,
+        syncPath: `jenkins_${moment().format("DD-MM-YYYY")}`,
+        syncFor: "RT",
+        sessionId,
+      });
+      jenkinsSPath = (paths && paths.s.spath) || "";
+      jenkinsTPath = (paths && paths.t.tpath) || "";
+    }
+    console.log("final paths", jenkinsSPath, jenkinsTPath);
+    if (!jenkinsSPath || !jenkinsTPath) {
+      return res.status(400).send("Please provide paths");
+    }
+    totalFiles = checkTotalFiles(jenkinsSPath);
+    addUserSession({ sessionId, newFiles, diffFiles, totalFiles, totalScan });
+    startCompare(
+      jenkinsSPath,
+      jenkinsTPath,
+      totalScan,
+      newFiles,
+      diffFiles,
+      totalFiles,
+      sessionId,
+      socketIo,
+      undefined
+    );
+    // start corn job for every call start and stop
+    const cronExpression = process.env.CRON_TIMER;
+    const cornJob = cron.schedule(
+      cronExpression,
+      () => {
+        const reportPath = resolve(
+          __dirname,
+          "reports",
+          moment().format("DD-MM-YYYY"),
+          `report_${sessionId}.html`
+        );
+        const headerReportPath = resolve(__dirname, `${sessionId}_.html`);
+        const tempSessionPath = resolve(__dirname, `temp_${sessionId}`);
+        if (
+          existsSync(reportPath) &&
+          existsSync(headerReportPath) &&
+          existsSync(tempSessionPath)
+        ) {
+          const tempFolderFiles = readdirSync(tempSessionPath);
+          console.log("tempFolderFiles", tempFolderFiles, sessionId);
+          if (tempFolderFiles.length === 0) {
+            rimraf(resolve(__dirname, `temp_${sessionId}`)).catch((err) => {
+              console.log("Errr: unlink temp file", err);
+            });
+            exec(
+              `(
+                echo "To: ${process.env.MAIL_TO}"
+                echo "Cc: ${process.env.MAIL_CC}"
+                echo "Subject: ${isSS === 'true' || isSS === true ? "Self-Service": ""}${isRT === 'true' || isRT === true ? "Retail/TLS": ""}Producation Content Sync"
+                echo "Content-Type: text/html"
+                echo 
+                cat ${headerReportPath}
+                echo
+                cat ${reportPath}
+            ) | sendmail -t`,
+              (error, stdout, stderr) => {
+                if (error) {
+                  console.log(`error: ${error.message}`, "::::::", sessionId);
+                  return;
+                }
+                if (stderr) {
+                  console.log(`stderr: ${stderr}`, "::::::", sessionId);
+                  return;
+                }
+                console.log(`stdout: ${stdout}`, "::::::", sessionId);
+              }
+            );
+            cornJob.stop();
+          }
+        }
+      },
+      { scheduled: false }
+    );
+    cornJob.start();
+    return res.status(200).send({
+      message: "Jenkins:::::Started ....... !",
+      totalFiles: totalFiles,
+      sessionId,
+    });
+  } catch (error) {
+    console.log("Error:: Jenkins ====>", error);
+    throw new Error(error);
+  }
+});
+
 app.post("/xml", async (req, res, next) => {
   try {
     const { sourcePath, targetPath } = req.body;
@@ -144,7 +282,7 @@ app.post("/xml", async (req, res, next) => {
       }
     }
 
-    if (isFile === "true") {
+    if (isFile === "true" || isFile === true) {
       const fileS = req.files.sourceFile;
       const fileT = req.files.targetFile;
       const fileNameS = fileS.name;
@@ -313,10 +451,8 @@ app.post("/fileData", async (req, res) => {
       resolve(__dirname, taretTempFile),
       resolve(__dirname, sourceTempFile),
     ].forEach((unlinkPath, index) => {
-      unlink(unlinkPath, (err, data) => {
-        if (err) {
-          console.log("Error: unlink" + index, err);
-        }
+      rimraf(unlinkPath).catch((err) => {
+        console.log("Error: unlink" + index, err);
       });
     });
   }
@@ -340,7 +476,7 @@ app.post("/saveFile", (req, res) => {
     }
     return res.status(200).send({ message: "Saved Successfully" });
   } catch (error) {
-    return res.status(500).send({ message: "Somthing went wrong" });
+    return res.status(500).send({ message: "Something went wrong" });
   }
 });
 
@@ -399,10 +535,8 @@ app.post("/sort/validate", async (req, res) => {
     const [s1D] = responseData;
     sourceD = s1D.s;
     [resolve(__dirname, sourceTempFile)].forEach((unlinkPath, index) => {
-      unlink(unlinkPath, (err, data) => {
-        if (err) {
-          console.log("Error: unlink" + index, err);
-        }
+      rimraf(unlinkPath).catch((err) => {
+        console.log("Error: unlink" + index, err);
       });
     });
   }
