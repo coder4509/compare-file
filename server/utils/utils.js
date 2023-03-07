@@ -254,10 +254,6 @@ const checkFileDiff = (
           totalScan,
         });
         if (!existsSync(subTPath)) {
-          newFiles.push({
-            s: subSPath,
-            t: subTPath,
-          });
           updateSessionData({
             sessionId,
             newFiles,
@@ -265,7 +261,52 @@ const checkFileDiff = (
             totalFiles,
             totalScan,
           });
-          return;
+          return lstat(subSPath, (err2, stats) => {
+            if (err2) {
+              throw new Error(err2);
+            }
+            const isDir = stats.isDirectory();
+            if (isDir) {
+              if (clientId) {
+                socketIo.emit("compare_done", { clientId, status: "progress" });
+              }
+              newFiles.push({
+                s: subSPath,
+                t: subTPath,
+              });
+              return setTimeout(() => {
+                checkFileDiff(
+                  resolve(subSPath),
+                  resolve(subTPath),
+                  false,
+                  totalScan,
+                  newFiles,
+                  diffFiles,
+                  socketIo,
+                  clientId
+                );
+                if (clientId) {
+                  socketIo.emit("compare_done", { clientId, status: "done" });
+                }
+              }, 2000);
+            } else {
+              if (clientId) {
+                socketIo.emit("compare_done", { clientId, status: "done" });
+              }
+              newFiles.push({
+                s: subSPath,
+                t: subTPath,
+              });
+              updateSessionData({
+                sessionId,
+                newFiles,
+                diffFiles,
+                totalFiles,
+                totalScan,
+              });
+              return;
+            }
+          });
         }
         return lstat(subSPath, (err2, stats) => {
           if (err2) {

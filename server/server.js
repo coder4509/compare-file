@@ -25,6 +25,7 @@ import moment from "moment";
 import { rimraf } from "rimraf";
 import cron from "node-cron";
 import { exec } from "child_process";
+import os from "os";
 
 // Local imports
 import App from "../src/App";
@@ -40,6 +41,9 @@ import {
   getSessionIdData,
   clearSessionId,
 } from "./utils/localDB";
+
+import {createWorkflow, createNewSwarm, deleteWorkSpace, p4login, reverCheckList, getPendingList} from "./utils/perforce/perforce_node";
+
 const app = express();
 const port = process.env.PORT || 3000;
 const httpServer = createServer(app);
@@ -229,7 +233,11 @@ app.post("/jenkins_xml", async (req, res) => {
               `(
                 echo "To: ${process.env.MAIL_TO}"
                 echo "Cc: ${process.env.MAIL_CC}"
-                echo "Subject: ${isSS === 'true' || isSS === true ? "Self-Service": ""}${isRT === 'true' || isRT === true ? "Retail/TLS": ""}Producation Content Sync"
+                echo "Subject: ${
+                  isSS === "true" || isSS === true ? "Self-Service" : ""
+                }${
+                isRT === "true" || isRT === true ? "Retail/TLS" : ""
+              } - Producation Content Sync"
                 echo "Content-Type: text/html"
                 echo 
                 cat ${headerReportPath}
@@ -548,6 +556,37 @@ app.post("/sort/validate", async (req, res) => {
   return res.send({ message: "xml valid", result: sourceD });
 });
 
+app.post('/p4/createWorkspace', (req, res) => {
+  const resData = createWorkflow();
+  return res.send(resData);
+});
+
+app.post('/p4/login', (req, res) => {
+  const resData = p4login();
+  return res.send(resData);
+});
+
+app.post('/p4/swarm', (req, res) => {
+  const resData = createNewSwarm();
+  return res.send(resData);
+});
+
+app.delete('/p4/workspace', (req, res) => {
+  const resData = deleteWorkSpace();
+  return res.send(resData);
+});
+
+app.delete('/p4/revert', (req, res) => {
+  const {cl} = req.body;
+  const resD = reverCheckList(cl);
+  return res.send(resD);
+})
+
+app.get('/p4/pending', (req, res) => {
+    const re = getPendingList();
+    res.send(re);
+})
+
 // ====================================================>
 
 app.get("/health", (req, res) => {
@@ -556,6 +595,36 @@ app.get("/health", (req, res) => {
 
 httpServer.listen(port, () => {
   console.log(`listening on *:${port}`);
+  const hostname = os.hostname();
+  const isJenkin = process.env.IS_JENKINS;
+  const timerC = process.env.DAILY_CRON_TIMER
+  // const startCron = cron.schedule(
+  //   timerC,
+  //   function() {
+  //     console.log("Daily 5am cron started for Prod sync");
+  //     axios.post(`http://${hostname}:${port}/jenkins_xml?isJenKins=true&isSS=true`)
+  //       .then(() => {
+  //         console.log("SS=======***********=======");
+  //         setTimeout(() => {
+  //           console.log("RT=======***********=======");
+  //           axios.post(
+  //             `http://${hostname}:${port}/jenkins_xml?isJenKins=true&isRT=true`
+  //           ).catch((err) => {
+  //             console.log("Fetch cron Failed RT", err);
+  //           });
+  //         }, 60000 * 10);
+  //       })
+  //       .catch((err) => {
+  //         console.log("Fetch cron Failed SS", err);
+  //       });
+  //   },
+  //   {
+  //     scheduled: false,
+  //   }
+  // );
+  // if (isJenkin === "true" || isJenkin === true) {
+  //   startCron.start();
+  // }
 });
 const clients = [];
 socketIo.on("connection", (socket) => {
