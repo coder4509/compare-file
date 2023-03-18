@@ -585,13 +585,16 @@ const getJenkinsFilePaths = async ({
   syncPath,
   syncFor,
   sessionId,
+  selectedBranch
 }) => {
   // get version
   const sourceVer = await getLatestContentVersion(sourceURL);
   const targetVer = await getLatestContentVersion(targetURL);
   // update the file URL with version
   const sURL = sfileUrl.replaceAll("$version", sourceVer);
-  const tURL = tfileUrl.replaceAll("$version", targetVer);
+  console.log("selectedBranch", selectedBranch);
+  const tURL = tfileUrl.replaceAll("$version", targetVer).replaceAll("$selectedBranch", selectedBranch);
+
   console.log("sURL====>", sURL);
   console.log("tURL====>", tURL);
   const completeSourceFilePath = sURL;

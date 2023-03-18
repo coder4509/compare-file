@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Compare XML</title>
+    <style>
+      *{
+        font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+        font-style: italic;
+      }
+       .main {
+        border: 1px solid #ccc;
+        padding: 3rem;
+        width: fit-content;
+        margin: 0 auto;
+       }
+       select, button, input {
+        width: 25%;
+        padding: 0.5rem;
+        cursor: pointer;
+        font-weight: bold;
+       }
+       .maxW {
+        width: 25rem;
+       }
+       .head-main {
+        padding: 1rem;
+        border: 1px dotted #ccc;
+        background-color: #ccc;
+        margin-bottom: 15px;
+       }
+       .note {
+        color: rgb(238, 70, 70);
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 15px;
+       }
+       dialog {
+        border: 1px solid #ccc;
+        width: 30rem;
+        box-shadow: 0px 0px 16px 0px #ccc;
+       }
+       input[type='text'], input[type='password'], #update-user {
+        width: -webkit-fill-available !important;
+        margin: 0.3rem;
+       }
+       .list-item .item {
+         border: 1px solid #ccc;
+         padding: 1rem;
+          margin: 1rem;
+        }
+        .list-item .item.active {
+          background-color: #73a273;
+          color: aliceblue;
+          font-weight: 600;
+          box-shadow: 0px 0px 16px 0px #73a273;
+        }
+        #username-re, #password-re {
+          color: red;
+        }
+         #close-modal {
+          border: 1px solid #ccc;
+    padding: 10px;
+    cursor: pointer;
+         }
+         .modal-close-main {
+          display: flex;
+    justify-content: flex-end;
+         }
+    </style>
+  </head>
+  <body>
+    <div class="head-main">
+      <h3>Update Production Sync Againest</h3>
+    </div>
+    <div class="note">
+      Note: Update branch will start new <b>production sync</b> job againest updated branch
+    </div>
+    <div class="main">
+      <div class="section">
+        <div class="maxW">
+          Branch
+        </div>
+        <div class="select-section maxW">
+          <select name="branch" id="branch" class="maxW">
+            <% for(var i = 0; i < branches.length; i++) { %>
+              <option value='<%= branches[i] %>' <%  if(branches[i] === selected){ 
+                %>selected <% } %> ><%= branches[i] %></option>
+            <% } %>
+          </select>
+        </div>
+      </div>
+      <br />
+      <div class="maxW">
+        <button onclick="updateBranch()">Update</button>
+      </div>
+
+      <!-- User Form Dialog -->
+      <dialog id="user-input">
+        <form method="dialog">
+          <div class="modal-close-main"><span id="close-modal">X</span></div>
+          <div>
+            <label id="username-re">*</label>
+           <input type="text" id="username" onchange="onInputChange()" onblur="onInputChange()" placeholder="Enter amdocs username/email">
+          </div>
+          <div>
+            <label id="password-re">*</label>
+            <input type="password" id="password" onchange="onInputChange()" onblur="onInputChange()" placeholder="********">
+          </div>
+          <div id="update-user">
+           <input type="submit" id="confirmBtn" value="Confirm" disabled/>
+          </div>
+        </form>
+      </dialog>
+
+      <!-- Alert Dialog -->
+      <dialog id="success-update">
+        <form method="dialog">
+          <p id="success-message"></p>
+          <button>OK</button>
+        </form>
+      </dialog>
+    </div>
+    <br/>
+    <div>
+      <div class="head-main">
+        <h3>Last Activity</h3>
+      </div>
+      <div class="main-list-container">
+        <div class="list-item">
+          <% for (var j = 0; j < lastUpdatedBy.length; j++) { %>
+            <div class='item <%= lastUpdatedBy[j].active === 1 ? "active" : "" %>'>
+              Last Updated By <b><%= lastUpdatedBy[j].username %></b> to <b><%= lastUpdatedBy[j].selectedBranch %></b> at <b><%= lastUpdatedBy[j].updateDate %></b>
+            </div>
+          <% } %>
+      </div>
+      </div>
+    </div>
+    <script>
+      function onInputChange (e) {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        username ? document.getElementById("username-re").style.color = 'green' : document.getElementById("username-re").style.color = 'red';
+        password ? document.getElementById("password-re").style.color = 'green': document.getElementById("password-re").style.color = 'red';
+        if(username && password) {
+          document.getElementById('confirmBtn').removeAttribute('disabled');
+        } else {
+          document.getElementById('confirmBtn').setAttribute('disabled', true);
+        }
+      }
+      function updateBranch() {
+        const userDialog = document.getElementById('user-input');
+        const isopen = userDialog.show();
+        const confirmBtn = document.getElementById('confirmBtn');
+        const closeModal = document.getElementById('close-modal');
+        setTimeout(() => {
+          confirmBtn.addEventListener('click', () => {
+          handleUpdateEnv();
+          userDialog.close();
+        });
+        closeModal.addEventListener('click', () => {
+          document.getElementById('username').value = '';
+          document.getElementById('password').value = '';
+          onInputChange();
+          userDialog.close();
+        })
+        }, 1000);
+      }
+      function handleUpdateEnv() {
+        const alertDialog = document.getElementById('success-update');
+        const selectedB = document.getElementById('branch').value;
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        alertDialog.addEventListener('close', () => {
+          window && window.location.reload();
+        });
+
+        fetch('/update/env', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ branch: selectedB, username, password})
+        }).then(res => res.json()).then(res => {
+          if (res && res.message) {
+            document.getElementById('success-message').innerText = res.message;
+            alertDialog.showModal();
+          };
+        });
+      }
+    </script>
+  </body>
+</html>

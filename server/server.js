@@ -42,7 +42,18 @@ import {
   clearSessionId,
 } from "./utils/localDB";
 
-import {createWorkflow, createNewSwarm, deleteWorkSpace, p4login, reverCheckList, getPendingList} from "./utils/perforce/perforce_node";
+import {
+  createWorkflow,
+  createNewSwarm,
+  deleteWorkSpace,
+  p4login,
+  reverCheckList,
+  getPendingList,
+} from "./utils/perforce/perforce_node";
+import { branchConfig } from "./config/config";
+import initDB from "./config/localEnvDb/db";
+
+const localCollection = initDB();
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -54,7 +65,10 @@ app.use(express.static("./build"));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-// Golbal variable
+app.set("views", resolve(__dirname, "views"));
+app.set("view engine", "ejs");
+
+// Global variable
 const optionsP = {
   allowBooleanAttributes: true,
   format: true,
@@ -149,6 +163,8 @@ app.post("/jenkins_xml", async (req, res) => {
     let totalFiles = 0;
     let jenkinsSPath = "";
     let jenkinsTPath = "";
+    const updateData = localCollection.find("branch");
+    const { data: { data: { selectedBranch } = {} } = {} } = updateData || {};
     const sessionId = uniqid();
     const jenKinsProSync = resolve(
       __dirname,
@@ -169,6 +185,7 @@ app.post("/jenkins_xml", async (req, res) => {
         syncPath: `jenkins_${moment().format("DD-MM-YYYY")}`,
         syncFor: "SS",
         sessionId,
+        selectedBranch: selectedBranch || process.env.LOCAL_SYNC_BRANCH
       });
       jenkinsSPath = (paths && paths.s.spath) || "";
       jenkinsTPath = (paths && paths.t.tpath) || "";
@@ -184,6 +201,7 @@ app.post("/jenkins_xml", async (req, res) => {
         syncPath: `jenkins_${moment().format("DD-MM-YYYY")}`,
         syncFor: "RT",
         sessionId,
+        selectedBranch: selectedBranch || process.env.LOCAL_SYNC_BRANCH
       });
       jenkinsSPath = (paths && paths.s.spath) || "";
       jenkinsTPath = (paths && paths.t.tpath) || "";
@@ -556,36 +574,71 @@ app.post("/sort/validate", async (req, res) => {
   return res.send({ message: "xml valid", result: sourceD });
 });
 
-app.post('/p4/createWorkspace', (req, res) => {
+app.post("/p4/createWorkspace", (req, res) => {
   const resData = createWorkflow();
   return res.send(resData);
 });
 
-app.post('/p4/login', (req, res) => {
+app.post("/p4/login", (req, res) => {
   const resData = p4login();
   return res.send(resData);
 });
 
-app.post('/p4/swarm', (req, res) => {
+app.post("/p4/swarm", (req, res) => {
   const resData = createNewSwarm();
   return res.send(resData);
 });
 
-app.delete('/p4/workspace', (req, res) => {
+app.delete("/p4/workspace", (req, res) => {
   const resData = deleteWorkSpace();
   return res.send(resData);
 });
 
-app.delete('/p4/revert', (req, res) => {
-  const {cl} = req.body;
+app.delete("/p4/revert", (req, res) => {
+  const { cl } = req.body;
   const resD = reverCheckList(cl);
   return res.send(resD);
-})
+});
 
-app.get('/p4/pending', (req, res) => {
-    const re = getPendingList();
-    res.send(re);
-})
+app.get("/p4/pending", (req, res) => {
+  const re = getPendingList();
+  res.send(re);
+});
+
+app.get("/update/env", (req, res) => {
+  const branches = branchConfig.branch;
+  const selected = branchConfig.selectedBranch;
+  const updateData = localCollection.find("branch");
+  const { data: { data: { selectedBranch } = {}, lastUpdatedBy = []} = {} } = updateData || {};
+  const sortedDesc = lastUpdatedBy.sort((a, b) => moment(b.updateDate) - moment(a.updateDate));
+  res.render("envUpdate", {
+    branches: branches.split(","),
+    selected: selectedBranch || selected,
+    lastUpdatedBy: sortedDesc
+  });
+});
+
+app.post("/update/env", (req, res) => {
+  const { branch, username } = req.body;
+  const isProd = process.env.IS_PROD;
+  const isJenkins = process.env.IS_JENKINS;
+  if ((isProd === true && isProd === 'true') && isJenkins) {
+    const colFind = localCollection.find("branch");
+    if (typeof colFind.exists === "boolean" && !colFind.exists) {
+      localCollection.create("branch");
+      localCollection.insert("branch", { selectedBranch: branch, username });
+    } else {
+      localCollection.insert("branch", { selectedBranch: branch, username });
+    }
+    return res.send({ message: "Updated Successfully" });
+  }
+  return res.send({ message: "This action only perform on production" });
+});
+
+
+app.get("/workspace/manage", (req, res) => {
+  res.render("workspaceManage", {});
+});
 
 // ====================================================>
 
@@ -597,7 +650,7 @@ httpServer.listen(port, () => {
   console.log(`listening on *:${port}`);
   const hostname = os.hostname();
   const isJenkin = process.env.IS_JENKINS;
-  const timerC = process.env.DAILY_CRON_TIMER
+  const timerC = process.env.DAILY_CRON_TIMER;
   // const startCron = cron.schedule(
   //   timerC,
   //   function() {

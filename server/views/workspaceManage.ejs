@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compare XML</title>
+    <style>
+        * {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+            font-style: italic;
+        }
+
+        .head-main {
+            padding: 1rem;
+            border: 1px dotted #ccc;
+            background-color: #ccc;
+            margin-bottom: 15px;
+        }
+
+        .list-item .item {
+            border: 1px solid #ccc;
+            padding: 1rem;
+            margin: 1rem;
+        }
+
+        input[type='text'],
+        input[type='password'],
+        #update-user {
+            width: -webkit-fill-available !important;
+            margin: 0.3rem;
+        }
+
+        dialog {
+            border: 1px solid #ccc;
+            width: 30rem;
+            box-shadow: 0px 0px 16px 0px #ccc;
+        }
+
+        .main {
+            border: 1px solid #ccc;
+            padding: 3rem;
+            width: fit-content;
+            margin: 0 auto;
+        }
+
+        select,
+        button,
+        input {
+            width: 25%;
+            padding: 0.5rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .maxW {
+            width: 25rem;
+        }
+
+        .head-main {
+            padding: 1rem;
+            border: 1px dotted #ccc;
+            background-color: #ccc;
+            margin-bottom: 15px;
+        }
+
+        #close-modal, #delete-works-close-modal {
+            border: 1px solid #ccc;
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        .modal-close-main {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .login-p4 {
+            align-self: center;
+            font-size: 1.17em;
+            font-weight: 600;
+            padding: 10px;
+            border: 1px solid white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="head-main" style="display: flex;
+    justify-content: space-between;">
+        <h3>Manage P4 Workspaces</h3>
+        <div class="login-p4" onclick="loginPopup()">Login</div>
+    </div>
+    <!-- workspace info and actions -->
+    <div>
+        <div>
+            <fieldset>
+                <legend>
+                    <h4>Workspace info</h4>
+                </legend>
+                <div>Workspace Name: <b><i id="workspace-name">******</i></b></div>
+                <br />
+                <div>Stream: <b><i id="workspace-stream">******</i></b></div>
+                <br />
+                <div>
+                    <button onclick="deleteWorkspace()">Delete</button>
+                </div>
+            </fieldset>
+        </div>
+    </div>
+    <br />
+    <!-- checklist created in current workspace -->
+    <div class="head-main">
+        <h3>Manage Checklists</h3>
+    </div>
+
+
+    <!-- modals -->
+    <!-- Login Modal -->
+    <dialog id="login-modal">
+        <form method="dialog">
+            <div class="modal-close-main"><span id="close-modal">X</span></div>
+            <div>
+                <label id="username-re">*</label>
+                <input type="text" id="username" onchange="onInputChange()" onblur="onInputChange()"
+                    placeholder="Perforce username">
+            </div>
+            <div>
+                <label id="password-re">*</label>
+                <input type="password" id="password" onchange="onInputChange()" onblur="onInputChange()"
+                    placeholder="********">
+            </div>
+            <div id="update-user">
+                <input type="submit" id="confirmBtn" value="Login" disabled />
+            </div>
+        </form>
+    </dialog>
+
+    <!-- delete workspace -->
+    <dialog id="delete-works-modal">
+        <form method="dialog">
+            <div class="modal-close-main"><span id="delete-works-close-modal">X</span></div>
+            <h4>Are you sure want to delete this workspace?</h4>
+            <div id="update-user">
+                <button id="confirmBtn" value="Login">Delete</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script>
+        function onInputChange (e) {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        username ? document.getElementById("username-re").style.color = 'green' : document.getElementById("username-re").style.color = 'red';
+        password ? document.getElementById("password-re").style.color = 'green': document.getElementById("password-re").style.color = 'red';
+        if(username && password) {
+          document.getElementById('confirmBtn').removeAttribute('disabled');
+        } else {
+          document.getElementById('confirmBtn').setAttribute('disabled', true);
+        }
+      }
+      function loginPopup() {
+        const userDialog = document.getElementById('login-modal');
+        const isopen = userDialog.show();
+        const confirmBtn = document.getElementById('confirmBtn');
+        const closeModal = document.getElementById('close-modal');
+        setTimeout(() => {
+          confirmBtn.addEventListener('click', () => {
+        //   loginP4();
+          userDialog.close();
+        });
+        closeModal.addEventListener('click', () => {
+          document.getElementById('username').value = '';
+          document.getElementById('password').value = '';
+          onInputChange();
+          userDialog.close();
+        })
+        }, 1000);
+      }
+
+      function deleteWorkspace() {
+        const deleteDialog = document.getElementById('delete-works-modal');
+        deleteDialog.showModal();
+        const closeModal = document.getElementById('delete-works-close-modal');
+        closeModal.addEventListener('click', () => {
+            deleteDialog.close();
+        })
+      }
+    </script>
+</body>
+</html>
