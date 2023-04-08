@@ -589,7 +589,8 @@ const getJenkinsFilePaths = async ({
 }) => {
   // get version
   const sourceVer = await getLatestContentVersion(sourceURL);
-  const targetVer = await getLatestContentVersion(targetURL);
+  const targetSelectedURL = targetURL.replaceAll("$selectedBranch", selectedBranch);
+  const targetVer = await getLatestContentVersion(targetSelectedURL);
   // update the file URL with version
   const sURL = sfileUrl.replaceAll("$version", sourceVer);
   console.log("selectedBranch", selectedBranch);
