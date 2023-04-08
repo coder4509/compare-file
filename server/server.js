@@ -636,7 +636,7 @@ app.post("/update/env", (req, res) => {
 });
 
 
-app.get("/workspace/manage", (req, res) => {
+app.get("/manage/workspace", (req, res) => {
   res.render("workspaceManage", {});
 });
 

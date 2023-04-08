@@ -65,7 +65,8 @@
             margin-bottom: 15px;
         }
 
-        #close-modal, #delete-works-close-modal {
+        #close-modal,
+        #delete-works-close-modal {
             border: 1px solid #ccc;
             padding: 10px;
             cursor: pointer;
@@ -83,6 +84,53 @@
             padding: 10px;
             border: 1px solid white;
             cursor: pointer;
+        }
+
+        .manage-checklist {
+            display: flex;
+            padding: 2px;
+            border: 1px solid #ccc;
+        }
+
+        .manage-checklist div {
+            cursor: pointer;
+            margin: 2px;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+
+        .manage-checklist div:hover {
+            background: #ccc;
+        }
+
+        .manage-checklist div.active {
+            background: #ccc;
+        }
+
+        .checklist-button button {
+            width: 5rem;
+            margin: 2px;
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .checklist-name {
+            flex: 1;
+        }
+
+        .checklist-item {
+            display: flex;
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin: 0.5rem;
+            box-shadow: 0px 4px 10px 2px #ccc;
+            cursor: pointer;
+        }
+
+        .view-details {
+            border: 1px dashed #ccc;
+            margin-left: 10px;
+            padding: 3px;
         }
     </style>
 </head>
@@ -114,6 +162,34 @@
     <!-- checklist created in current workspace -->
     <div class="head-main">
         <h3>Manage Checklists</h3>
+    </div>
+    <div>
+        <div class="manage-checklist">
+            <div onclick="switchTab('pending')" id="pending" class="active">
+                Pending
+            </div>
+            <div onclick="switchTab('submitted')" id="submitted">
+                Submitted
+            </div>
+        </div>
+        <div>
+            <div>
+                <div class="checklist-item">
+                    <div class="checklist-name">CheckList Number <span class="view-details">View</span></div>
+                    <div class="checklist-button">
+                        <button>Revert</button>
+                        <button>Delete</button>
+                    </div>
+                </div>
+                <div class="checklist-item">
+                    <div class="checklist-name">CheckList Number <span class="view-details">View</span></div>
+                    <div class="checklist-button">
+                        <button>Revert</button>
+                        <button>Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
 
@@ -150,44 +226,73 @@
     </dialog>
 
     <script>
-        function onInputChange (e) {
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        username ? document.getElementById("username-re").style.color = 'green' : document.getElementById("username-re").style.color = 'red';
-        password ? document.getElementById("password-re").style.color = 'green': document.getElementById("password-re").style.color = 'red';
-        if(username && password) {
-          document.getElementById('confirmBtn').removeAttribute('disabled');
-        } else {
-          document.getElementById('confirmBtn').setAttribute('disabled', true);
+        function onInputChange(e) {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            username ? document.getElementById("username-re").style.color = 'green' : document.getElementById("username-re").style.color = 'red';
+            password ? document.getElementById("password-re").style.color = 'green' : document.getElementById("password-re").style.color = 'red';
+            if (username && password) {
+                document.getElementById('confirmBtn').removeAttribute('disabled');
+            } else {
+                document.getElementById('confirmBtn').setAttribute('disabled', true);
+            }
         }
-      }
-      function loginPopup() {
-        const userDialog = document.getElementById('login-modal');
-        const isopen = userDialog.show();
-        const confirmBtn = document.getElementById('confirmBtn');
-        const closeModal = document.getElementById('close-modal');
-        setTimeout(() => {
-          confirmBtn.addEventListener('click', () => {
-        //   loginP4();
-          userDialog.close();
-        });
-        closeModal.addEventListener('click', () => {
-          document.getElementById('username').value = '';
-          document.getElementById('password').value = '';
-          onInputChange();
-          userDialog.close();
-        })
-        }, 1000);
-      }
+        function loginPopup() {
+            const userDialog = document.getElementById('login-modal');
+            const isopen = userDialog.show();
+            const confirmBtn = document.getElementById('confirmBtn');
+            const closeModal = document.getElementById('close-modal');
+            setTimeout(() => {
+                confirmBtn.addEventListener('click', () => {
+                    //   loginP4();
+                    userDialog.close();
+                });
+                closeModal.addEventListener('click', () => {
+                    document.getElementById('username').value = '';
+                    document.getElementById('password').value = '';
+                    onInputChange();
+                    userDialog.close();
+                })
+            }, 1000);
+        }
 
-      function deleteWorkspace() {
-        const deleteDialog = document.getElementById('delete-works-modal');
-        deleteDialog.showModal();
-        const closeModal = document.getElementById('delete-works-close-modal');
-        closeModal.addEventListener('click', () => {
-            deleteDialog.close();
-        })
-      }
+        function deleteWorkspace() {
+            const deleteDialog = document.getElementById('delete-works-modal');
+            deleteDialog.showModal();
+            const closeModal = document.getElementById('delete-works-close-modal');
+            closeModal.addEventListener('click', () => {
+                deleteDialog.close();
+            })
+        }
+
+        function init() {
+            const filters = window.location.search.split('?')[1];
+            const filterBy = filters.split('=')[1];
+            const elmPending = document.getElementById('pending');
+            const elmSubmitted = document.getElementById('submitted');
+            elmPending.removeAttribute('class');
+            elmSubmitted.removeAttribute('class');
+            document.getElementById(filterBy).setAttribute('class', 'active');
+        }
+
+        init();
+
+        function switchTab(e) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const elmPending = document.getElementById('pending');
+            const elmSubmitted = document.getElementById('submitted');
+            if (elmPending.className === 'active' && e !== 'pending') {
+                elmPending.removeAttribute('class');
+            }
+            if (elmSubmitted.className === 'active' && e !== 'submitted') {
+                elmSubmitted.removeAttribute('class');
+            }
+
+            urlParams.set('filter', e);
+            window.location.search = urlParams;
+            return document.getElementById(e).setAttribute('class', 'active');
+        }
     </script>
 </body>
+
 </html>
