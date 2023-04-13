@@ -156,7 +156,7 @@ app.get("/single/xml", (req, res) => {
 // for jenkins
 app.post("/jenkins_xml", async (req, res) => {
   try {
-    const { isJenKins, isSS, isRT } = req.query;
+    const { isJenKins, isSS, isRT, isSyncWithP4 } = req.query;
     let newFiles = [];
     let diffFiles = [];
     let totalScan = [];
@@ -173,6 +173,14 @@ app.post("/jenkins_xml", async (req, res) => {
     if (!existsSync(jenKinsProSync)) {
       mkdirSync(jenKinsProSync);
     }
+    let perforceWorkspace = null;
+    if (isSyncWithP4 === "true" || isSyncWithP4 === true) {
+      perforceWorkspace = createWorkflow(
+        `${process.env.P4USER}_perforce_workspace_${process.env.LOCAL_SYNC_BRANCH}`,
+        process.env.LOCAL_SYNC_BRANCH
+      ) || {};
+      console.log('perforceWorkspace:::', perforceWorkspace.SS_path, perforceWorkspace.RT_path)
+    }
     if (
       (isJenKins === "true" || isJenKins === true) &&
       (isSS === "true" || isSS === true)
@@ -185,7 +193,9 @@ app.post("/jenkins_xml", async (req, res) => {
         syncPath: `jenkins_${moment().format("DD-MM-YYYY")}`,
         syncFor: "SS",
         sessionId,
-        selectedBranch: selectedBranch || process.env.LOCAL_SYNC_BRANCH
+        selectedBranch: selectedBranch || process.env.LOCAL_SYNC_BRANCH,
+        isSyncWithP4,
+        workspace_target_path: (perforceWorkspace && perforceWorkspace.SS_path) || ''
       });
       jenkinsSPath = (paths && paths.s.spath) || "";
       jenkinsTPath = (paths && paths.t.tpath) || "";
@@ -201,7 +211,9 @@ app.post("/jenkins_xml", async (req, res) => {
         syncPath: `jenkins_${moment().format("DD-MM-YYYY")}`,
         syncFor: "RT",
         sessionId,
-        selectedBranch: selectedBranch || process.env.LOCAL_SYNC_BRANCH
+        selectedBranch: selectedBranch || process.env.LOCAL_SYNC_BRANCH,
+        isSyncWithP4,
+        workspace_target_path: (perforceWorkspace && perforceWorkspace.RT_path) || ''
       });
       jenkinsSPath = (paths && paths.s.spath) || "";
       jenkinsTPath = (paths && paths.t.tpath) || "";

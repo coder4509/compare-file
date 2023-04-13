@@ -33,10 +33,10 @@ const p4login = () => {
   return resp;
 };
 
-const createWorkflow = () => {
+const createWorkflow = (workspace__name, stream_number) => {
   p4login();
-  const workspace_name = "my_workspace_6000";
-  const stream_name = "6000";
+  const workspace_name = workspace__name || "my_workspace_6000";
+  const stream_name = stream_number || "6000";
   const worksp = resolve(__dirname, workspace_name);
   if (!existsSync(worksp)) {
     mkdirSync(worksp);
@@ -52,7 +52,14 @@ const createWorkflow = () => {
   const syncSSContent = p4Excute(
     `-c ${workspace_name} sync -f //VFIT/${stream_name}-DEXP/cust/digitalExpUI_P7/dui-aem-modules/digitalexp-aem-ui-content-ss-l9/digitalexp-aem-ui-content-ss-l9/...`
   );
-  return { workspace, syncRTContent, syncSSContent };
+  return {
+    workspace,
+    syncRTContent,
+    syncSSContent,
+    worksPath: worksp,
+    RT_path: `${worksp}/cust/digitalExpUI_P7/dui-aem-modules/digitalexp-aem-ui-content-rt-l9/digitalexp-aem-ui-content-rt-l9`,
+    SS_path: `${worksp}/cust/digitalExpUI_P7/dui-aem-modules/digitalexp-aem-ui-content-ss-l9/digitalexp-aem-ui-content-ss-l9`,
+  };
 };
 
 const deleteWorkSpace = () => {

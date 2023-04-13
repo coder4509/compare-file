@@ -585,8 +585,11 @@ const getJenkinsFilePaths = async ({
   syncPath,
   syncFor,
   sessionId,
-  selectedBranch
+  selectedBranch,
+  isSyncWithP4,
+  workspace_target_path
 }) => {
+  const isSyncWithP4Workspace = (isSyncWithP4 === 'true' || isSyncWithP4 === true) ? true : false;
   // get version
   const sourceVer = await getLatestContentVersion(sourceURL);
   const targetSelectedURL = targetURL.replaceAll("$selectedBranch", selectedBranch);
@@ -608,7 +611,7 @@ const getJenkinsFilePaths = async ({
     html += `<div><h5>Latest package version:</h5></div>`;
     html += `<div><ul>
     <li>Production Version:- ${completeSourceFilePath}</li>
-    <li>Branch Version:- ${completeTargetFilePath}</li>
+    ${isSyncWithP4Workspace ? `<li>Auto generated synced p4 workspace:- ${workspace_target_path}</li>` : `<li>Branch Version:- ${completeTargetFilePath}</li>`}
     </ul></div><hr/>`;
   }
   if (syncFor === "RT") {
@@ -617,7 +620,7 @@ const getJenkinsFilePaths = async ({
     html += `<div><h5>Latest package version:</h5></div>`;
     html += `<div><ul>
     <li>Production Version:- ${completeSourceFilePath}</li>
-    <li>Branch Version:- ${completeTargetFilePath}</li>
+    ${isSyncWithP4Workspace ? `<li>Auto generated synced p4 workspace:- ${workspace_target_path}</li>` : `<li>Branch Version:- ${completeTargetFilePath}</li>`}
     </ul></div><hr/>`;
   }
   writeFileSync(resolve(__dirname, `${sessionId}_.html`), html, "utf-8");
@@ -715,7 +718,10 @@ const getJenkinsFilePaths = async ({
         s,
         spath: extractSP,
       },
-      t: {
+      t: isSyncWithP4 ? {
+        t,
+        tpath: workspace_target_path
+      } : {
         t,
         tpath: resolve(
           __dirname,
